@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { useState } from "react";
+import { useDateStore } from "@/store/dateStore";
 
 export default function Home() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const { date, setDate } = useDateStore();
 
   return (
     <main className="min-h-screen">
