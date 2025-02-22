@@ -318,3 +318,147 @@ export default function BigCalendarLeftJournalRightZustand() {
     </div>
   );
 }
+
+  return (
+    <div className="flex flex-row min-h-screen bg-[#f4f0e5] p-4">
+      {/* Left side: Calendar + Quote */}
+      <motion.div className="w-1/2 p-4 flex flex-col">
+        <Card className="rounded-2xl shadow-xl mb-4">
+          <CardContent className="p-4">
+            <h2 className="font-bold text-xl mb-4 text-gray-800">Calendar</h2>
+            {/* Month navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="outline" onClick={handlePrevMonth}>
+                Previous
+              </Button>
+              <h2 className="font-bold text-xl">
+                {format(currentDate, "MMMM yyyy")}
+              </h2>
+              <Button variant="outline" onClick={handleNextMonth}>
+                Next
+              </Button>
+            </div>
+
+            {/* Day headers */}
+            <div className="grid grid-cols-7 text-center font-bold mb-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dn) => (
+                <div key={dn}>{dn}</div>
+              ))}
+            </div>
+
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 grid-rows-5 gap-2">
+              {calendarDays.map((date, idx) => {
+                const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                const isSelected =
+                  selectedDate && date.toDateString() === selectedDate.toDateString();
+                return (
+                  <div
+                    key={idx}
+                    className={`h-20 border border-gray-300 flex items-center justify-center rounded-md cursor-pointer ${
+                      isCurrentMonth ? "bg-white text-gray-900" : "bg-gray-200 text-gray-500"
+                    } ${isSelected ? "ring-2 ring-slate-500" : ""}`}
+                    onClick={() => handleDateClick(date)}
+                  >
+                    {date.getDate()}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Motivational quote */}
+        <Card className="rounded-2xl shadow-xl bg-gray-100 p-4">
+          <p className="text-gray-700 italic">{motivationalQuote}</p>
+        </Card>
+      </motion.div>
+
+      {/* Right side: Journal entries */}
+      <motion.div className="w-1/2 p-4 flex flex-col">
+        <Card className="rounded-2xl shadow-xl flex-grow">
+          <CardContent className="p-4 flex flex-col h-full">
+            <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
+
+            {/* Display existing notes */}
+            <div className="overflow-y-auto flex-grow">
+              {selectedDate &&
+                notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
+                  <div
+                    key={note.id}
+                    className="mb-2 p-2 border rounded bg-white flex justify-between items-center"
+                  >
+                    <div className="w-full">
+                      <p className="text-sm text-gray-500">{note.timestamp}</p>
+
+                      {/* Editing vs. display mode */}
+                      {editingNote?.id === note.id ? (
+                        <Textarea
+                          value={editingNote.content}
+                          onChange={(e) =>
+                            setEditingNote({ id: note.id, content: e.target.value })
+                          }
+                          className="w-full"
+                        />
+                      ) : (
+                        <p>{note.content}</p>
+                      )}
+                    </div>
+                    <div className="flex space-x-2 ml-2">
+                      {/* If we're editing this note, show Save button; otherwise, show Pencil button */}
+                      {editingNote?.id === note.id ? (
+                        <Button
+                          onClick={() => updateNote(format(selectedDate, "yyyy-MM-dd"))}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Save
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() =>
+                            setEditingNote({ id: note.id, content: note.content })
+                          }
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Pencil className="text-gray-500 h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* Delete button */}
+                      <Button
+                        onClick={() =>
+                          deleteNote(format(selectedDate, "yyyy-MM-dd"), note.id)
+                        }
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Trash className="text-gray-500 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Add a new journal entry */}
+            <div className="flex flex-col space-y-2 mt-auto">
+              <Textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Type your journal entry here..."
+                className="w-full"
+              />
+              <Button
+                onClick={addNote}
+                className="bg-slate-600 hover:bg-slate-700 text-white"
+              >
+                Save Entry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
