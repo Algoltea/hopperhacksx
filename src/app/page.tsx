@@ -1,6 +1,6 @@
-"use client";
-import DemoAuthForm from "@/components/ui/login_and_register/login_and_register";
+import BigCalendarLeftJournalRightZustand from "@/components/ui/user_dashboard/user_dashboard";
+
 
 export default function Home() {
-  return <DemoAuthForm />;
+  return <BigCalendarLeftJournalRightZustand />;
 }
