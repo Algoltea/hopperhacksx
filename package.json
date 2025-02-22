@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "ai": "^4.1.45",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
