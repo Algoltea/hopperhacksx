@@ -318,3 +318,63 @@ export default function BigCalendarLeftJournalRightZustand() {
     </div>
   );
 }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#f4f0e5] p-4">
+      <div className="flex w-full h-[80vh]">
+        <motion.div className="w-1/2 p-4 flex flex-col">
+          <Card className="rounded-2xl shadow-xl flex-grow">
+            <CardContent className="p-4 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <Button variant="outline" onClick={handlePrevMonth}>Previous</Button>
+                <h2 className="font-bold text-xl">{format(currentDate, "MMMM yyyy")}</h2>
+                <Button variant="outline" onClick={handleNextMonth}>Next</Button>
+              </div>
+              <div className="grid grid-cols-7 text-center font-bold mb-2">
+                {dayNames.map((dn) => <div key={dn}>{dn}</div>)}
+              </div>
+              <div className="grid grid-cols-7 grid-rows-5 gap-2 flex-grow">
+                {calendarDays.map((date, idx) => {
+                  const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                  return (
+                    <div
+                      key={idx}
+                      className={`h-20 border border-gray-300 flex items-center justify-center cursor-pointer rounded-md ${
+                        selectedDate && date.toDateString() === selectedDate.toDateString() ? "ring-2 ring-slate-500" : ""
+                      } ${isCurrentMonth ? "bg-white text-gray-900" : "bg-gray-200 text-gray-500"}`}
+                      onClick={() => handleDayClick(date)}
+                    >
+                      {date.getDate()}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+          <motion.div className="mt-4 w-full">
+            <Card className="rounded-2xl shadow-xl bg-gray-100 p-4">
+              <p className="text-gray-700 italic">{motivationalQuote}</p>
+            </Card>
+          </motion.div>
+        </motion.div>
+        <motion.div className="w-1/2 p-4 flex flex-col">
+          <Card className="rounded-2xl shadow-xl flex-grow">
+            <CardContent className="p-4 flex flex-col h-full">
+              <h2 className="font-bold text-xl mb-4 text-gray-800">Notes</h2>
+              <div className="flex flex-col space-y-2 mt-auto">
+                <Input
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Type your note here..."
+                />
+                <Button onClick={addNote} className="bg-slate-600 hover:bg-slate-700 text-white">
+                  Save Note
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
