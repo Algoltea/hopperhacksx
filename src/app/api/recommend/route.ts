@@ -36,7 +36,7 @@ const recommendationSchema = z.object({
         "curious",
         "playful",
         "celebratory",
-        "problem-solving"
+        "happy",
     ])
 });
 
