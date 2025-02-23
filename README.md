@@ -43,7 +43,6 @@ npm install
 ```bash
 # OpenAI API Key (Required for Hopper AI)
 OPENAI_API_KEY=your_openai_api_key
-
 # Firebase Configuration (Required for authentication and database)
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
