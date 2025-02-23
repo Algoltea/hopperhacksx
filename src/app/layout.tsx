@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mindful Journal",
-  description: "Track your moods and get AI-powered insights",
+  title: "Hopper Hacks",
+  description: "A journaling app with a cute and supportive AI companion, Hopper!",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

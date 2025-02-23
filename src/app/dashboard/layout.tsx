@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { logoutUser } from "@/lib/auth/auth";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loading";
 
 export default function DashboardLayout({
   children,
@@ -33,7 +34,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+        <Loader size="lg" />
       </div>
     );
   }

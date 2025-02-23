@@ -6,11 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loading";
 import { loginUser, registerUser } from "@/lib/auth/auth";
-
-interface AuthError {
-  message: string;
-}
+import { FirebaseError } from "firebase/app";
 
 export default function DemoAuthForm() {
   const router = useRouter();
@@ -47,7 +45,7 @@ export default function DemoAuthForm() {
         router.push('/dashboard');
       }
     } catch (err: unknown) {
-      const error = err as AuthError;
+      const error = err as FirebaseError;
       setError(error.message);
     } finally {
       setIsLoading(false);
@@ -63,7 +61,7 @@ export default function DemoAuthForm() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#f4f0e5]">
+    <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
@@ -123,7 +121,7 @@ export default function DemoAuthForm() {
                 className="w-full mt-2"
                 disabled={isLoading}
               >
-                {isLoading ? "Loading..." : isLogin ? "Login" : "Sign Up"}
+                {isLoading ? <Loader size="sm" /> : isLogin ? "Login" : "Sign Up"}
               </Button>
             </form>
             <div className="text-center mt-4">
