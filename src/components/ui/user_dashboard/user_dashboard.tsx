@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   addMonths,
   subMonths,
@@ -13,17 +13,31 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { create } from "zustand";
-import { Trash, Pencil } from "lucide-react";
+import { Trash, Pencil, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { Timestamp } from "firebase/firestore";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  createNote,
+  updateNote as updateFirebaseNote,
+  deleteNote as deleteFirebaseNote,
+  getNotes,
+} from "@/lib/dashboard/dashboard";
 
 // Define the shape of a note
 interface Note {
   id: string;
-  timestamp: string;
   content: string;
+  analysis?: string;
+  confidence?: number;
+  createdAt: Timestamp;
+  hopperEmotion?: string;
+  hopperResponse?: string;
+  mood?: string;
+  timestamp?: string;
 }
 
 // Define our Zustand store state and actions
@@ -34,16 +48,21 @@ interface CalendarState {
   newNote: string;
   editingNote: { id: string; content: string } | null;
   motivationalQuote: string;
+  isLoading: boolean;
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
   setNewNote: (note: string) => void;
   setEditingNote: (note: { id: string; content: string } | null) => void;
+  setNotesData: (dateKey: string, notes: Note[]) => void;
+  setIsLoading: (loading: boolean) => void;
+  resetStore: () => Date;
 
-  addNote: () => void;
-  deleteNote: (dateKey: string, noteId: string) => void;
-  updateNote: (dateKey: string) => void;
+  addNote: (userId: string, dateId: string) => Promise<void>;
+  deleteNote: (userId: string, dateId: string, noteId: string) => Promise<void>;
+  updateNote: (userId: string, dateId: string) => Promise<void>;
   generateMotivationalQuote: () => void;
+  fetchNotes: (userId: string, dateId: string) => Promise<void>;
 }
 
 // Create the Zustand store
@@ -54,61 +73,95 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   newNote: "",
   editingNote: null,
   motivationalQuote: "Stay strong, keep pushing forward!",
+  isLoading: false,
 
   setCurrentDate: (date) => set({ currentDate: date }),
-
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
-
   setNewNote: (note) => set({ newNote: note }),
-
   setEditingNote: (note) => set({ editingNote: note }),
-
-  addNote: () => {
-    const { selectedDate, newNote, notesData } = get();
-    if (!selectedDate || !newNote.trim()) return;
-
-    const dateKey = format(selectedDate, "yyyy-MM-dd");
-    const timestamp = format(new Date(), "PPP h:mm a");
-    const newEntry: Note = {
-      id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
-      timestamp,
-      content: newNote.trim(),
-    };
-
+  setNotesData: (dateKey, notes) => set((state) => ({
+    notesData: { ...state.notesData, [dateKey]: notes },
+  })),
+  setIsLoading: (loading) => set({ isLoading: loading }),
+  resetStore: () => {
+    const today = new Date();
     set({
-      notesData: {
-        ...notesData,
-        [dateKey]: [...(notesData[dateKey] || []), newEntry],
-      },
+      currentDate: today,
+      selectedDate: today,
+      notesData: {},
       newNote: "",
+      editingNote: null,
+      motivationalQuote: "Stay strong, keep pushing forward!",
+      isLoading: false,
     });
+    return today; // Return today's date for use after reset
   },
 
-  deleteNote: (dateKey, noteId) => {
-    set((state) => ({
-      notesData: {
-        ...state.notesData,
-        [dateKey]: state.notesData[dateKey]?.filter((note) => note.id !== noteId) || [],
-      },
-    }));
-  },
+  addNote: async (userId, dateId) => {
+    const { newNote } = get();
+    if (!newNote.trim()) return;
 
-  updateNote: (dateKey) => {
-    set((state) => {
-      if (!state.editingNote) return state;
-      return {
-        notesData: {
-          ...state.notesData,
-          [dateKey]:
-            state.notesData[dateKey]?.map((note) =>
-              note.id === state.editingNote!.id
-                ? { ...note, content: state.editingNote!.content }
-                : note
-            ) || [],
-        },
-        editingNote: null,
+    try {
+      set({ isLoading: true });
+      const noteData = {
+        content: newNote.trim(),
+        analysis: "",
+        confidence: 0,
+        hopperEmotion: "",
+        hopperResponse: "",
+        mood: "",
       };
-    });
+
+      await createNote(userId, dateId, noteData);
+      const notes = await getNotes(userId, dateId);
+      
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: notes },
+        newNote: "",
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error adding note:", error);
+      set({ isLoading: false });
+    }
+  },
+
+  deleteNote: async (userId, dateId, noteId) => {
+    try {
+      set({ isLoading: true });
+      await deleteFirebaseNote(userId, dateId, noteId);
+      const notes = await getNotes(userId, dateId);
+      
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: notes },
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      set({ isLoading: false });
+    }
+  },
+
+  updateNote: async (userId, dateId) => {
+    const { editingNote } = get();
+    if (!editingNote) return;
+
+    try {
+      set({ isLoading: true });
+      await updateFirebaseNote(userId, dateId, editingNote.id, {
+        content: editingNote.content,
+      });
+      const notes = await getNotes(userId, dateId);
+      
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: notes },
+        editingNote: null,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error updating note:", error);
+      set({ isLoading: false });
+    }
   },
 
   generateMotivationalQuote: () => {
@@ -122,9 +175,27 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
     set({ motivationalQuote: randomQuote });
   },
+
+  fetchNotes: async (userId, dateId) => {
+    try {
+      set({ isLoading: true });
+      const notes = await getNotes(userId, dateId);
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: notes },
+      }));
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: [] },
+      }));
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));
 
 export default function BigCalendarLeftJournalRightZustand() {
+  const { user } = useAuth();
   const {
     currentDate,
     selectedDate,
@@ -132,6 +203,7 @@ export default function BigCalendarLeftJournalRightZustand() {
     newNote,
     editingNote,
     motivationalQuote,
+    isLoading,
     setCurrentDate,
     setSelectedDate,
     setNewNote,
@@ -140,12 +212,29 @@ export default function BigCalendarLeftJournalRightZustand() {
     deleteNote,
     updateNote,
     generateMotivationalQuote,
+    fetchNotes,
+    resetStore,
   } = useCalendarStore();
 
+  // Reset store when user logs out or logs in
+  useEffect(() => {
+    if (!user) {
+      resetStore();
+    } else {
+      const today = resetStore(); // Reset store and get today's date
+      const dateId = format(today, "yyyy-MM-dd");
+      fetchNotes(user.uid, dateId); // Fetch today's notes
+    }
+  }, [user, resetStore, fetchNotes]);
+
   // Handle date click
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
     generateMotivationalQuote();
+    if (user?.uid) {
+      const dateId = format(date, "yyyy-MM-dd");
+      await fetchNotes(user.uid, dateId);
+    }
   };
 
   // Navigation
@@ -264,16 +353,23 @@ export default function BigCalendarLeftJournalRightZustand() {
               <CardContent className="p-4 flex flex-col h-full pb-2">
                 <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
 
-                {/* We'll display notes with scrolling enabled inside the pane. */}
+                {/* Notes list with loading state */}
                 <div className="flex flex-col space-y-2 overflow-y-auto flex-1 pr-2 pb-0">
-                  {selectedDate &&
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                    </div>
+                  ) : (
+                    selectedDate &&
                     notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
                       <div
                         key={note.id}
                         className="p-2 border rounded bg-white flex justify-between items-center"
                       >
                         <div className="w-full">
-                          <p className="text-sm text-gray-500">{note.timestamp}</p>
+                          <p className="text-sm text-gray-500">
+                            {note.timestamp || format(note.createdAt.toDate(), 'PPP h:mm a')}
+                          </p>
 
                           {editingNote?.id === note.id ? (
                             <Textarea
@@ -282,6 +378,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                                 setEditingNote({ id: note.id, content: e.target.value })
                               }
                               className="w-full"
+                              disabled={isLoading}
                             />
                           ) : (
                             <p className="text-gray-800 text-sm">{note.content}</p>
@@ -290,11 +387,16 @@ export default function BigCalendarLeftJournalRightZustand() {
                         <div className="flex space-x-2 ml-2">
                           {editingNote?.id === note.id ? (
                             <Button
-                              onClick={() => updateNote(format(selectedDate, "yyyy-MM-dd"))}
+                              onClick={() => user?.uid && updateNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
                               size="sm"
                               variant="outline"
+                              disabled={isLoading}
                             >
-                              Save
+                              {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Save'
+                              )}
                             </Button>
                           ) : (
                             <Button
@@ -303,27 +405,33 @@ export default function BigCalendarLeftJournalRightZustand() {
                               }
                               size="sm"
                               variant="outline"
+                              disabled={isLoading}
                             >
                               <Pencil className="text-gray-500 h-4 w-4" />
                             </Button>
                           )}
 
-                          {/* Delete button with gray icon */}
                           <Button
                             onClick={() =>
-                              deleteNote(format(selectedDate, "yyyy-MM-dd"), note.id)
+                              user?.uid && deleteNote(user.uid, format(selectedDate, "yyyy-MM-dd"), note.id)
                             }
                             variant="outline"
                             size="sm"
+                            disabled={isLoading}
                           >
-                            <Trash className="text-gray-500 h-4 w-4" />
+                            {isLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash className="text-gray-500 h-4 w-4" />
+                            )}
                           </Button>
                         </div>
                       </div>
-                    ))}
+                    ))
+                  )}
                 </div>
 
-                {/* Add a new journal entry, positioned at the bottom with less white space */}
+                {/* Add new journal entry */}
                 {selectedDate && (
                   <div className="flex flex-col items-center mt-2 pt-2 border-t">
                     <Textarea
@@ -331,12 +439,16 @@ export default function BigCalendarLeftJournalRightZustand() {
                       onChange={(e) => setNewNote(e.target.value)}
                       placeholder="Type your journal entry here..."
                       className="w-full max-w-md"
+                      disabled={isLoading}
                     />
                     <Button
-                      onClick={addNote}
+                      onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
                       className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
-                      disabled={!newNote.trim()}
+                      disabled={!newNote.trim() || isLoading}
                     >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
                       Save Entry
                     </Button>
                   </div>
