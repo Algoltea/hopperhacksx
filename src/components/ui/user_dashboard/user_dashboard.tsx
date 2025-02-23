@@ -13,13 +13,14 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { create } from "zustand";
-import { Trash, Pencil, Loader2 } from "lucide-react";
+import { Trash, Pencil } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Timestamp } from "firebase/firestore";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader } from "@/components/ui/loading";
 import {
   createNote,
   updateNote as updateFirebaseNote,
@@ -373,11 +374,12 @@ const moodColors = {
   happy: "bg-yellow-100 hover:bg-yellow-200",
   sad: "bg-blue-100 hover:bg-blue-200",
   angry: "bg-red-100 hover:bg-red-200",
-  anxious: "bg-purple-100 hover:bg-purple-200",
+  anxious: "bg-indigo-100 hover:bg-indigo-200",
   frustrated: "bg-purple-100 hover:bg-purple-200",
   neutral: "bg-gray-100 hover:bg-gray-200",
   excited: "bg-orange-100 hover:bg-orange-200",
   peaceful: "bg-green-100 hover:bg-green-200",
+  reflective: "bg-purple-100 hover:bg-purple-200",
   default: "bg-white hover:bg-gray-100"
 };
 
@@ -626,22 +628,68 @@ export default function BigCalendarLeftJournalRightZustand() {
                 <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
 
                 {/* Notes list with loading state */}
-                <div className="flex flex-col space-y-2 overflow-y-auto flex-1 pr-2 pb-0">
+                <div className="flex flex-col space-y-3 overflow-y-auto flex-1 pr-2 pb-0">
                   {isLoading ? (
                     <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                      <Loader size="lg" />
                     </div>
                   ) : (
                     selectedDate &&
                     notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
                       <div
                         key={note.id}
-                        className="p-2 border rounded bg-white flex justify-between items-center"
+                        className="p-3 border rounded-lg bg-white hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-full">
-                          <p className="text-sm text-gray-500">
-                            {note.timestamp || format(note.createdAt.toDate(), 'PPP h:mm a')}
-                          </p>
+                        <div className="w-full space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                              {note.timestamp || format(note.createdAt.toDate(), 'PPP h:mm a')}
+                            </p>
+                            <div className="flex space-x-2">
+                              {editingNote?.id === note.id ? (
+                                <Button
+                                  onClick={() => user?.uid && updateNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isLoading}
+                                >
+                                  {isLoading ? (
+                                    <Loader size="sm" />
+                                  ) : (
+                                    'Save'
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() =>
+                                    setEditingNote({ id: note.id, content: note.content })
+                                  }
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-gray-500 hover:text-gray-700"
+                                  disabled={isLoading}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              <Button
+                                onClick={() =>
+                                  user?.uid && deleteNote(user.uid, format(selectedDate, "yyyy-MM-dd"), note.id)
+                                }
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-red-600"
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader size="sm" />
+                                ) : (
+                                  <Trash className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
 
                           {editingNote?.id === note.id ? (
                             <Textarea
@@ -649,54 +697,12 @@ export default function BigCalendarLeftJournalRightZustand() {
                               onChange={(e) =>
                                 setEditingNote({ id: note.id, content: e.target.value })
                               }
-                              className="w-full"
+                              className="w-full min-h-[100px] text-sm"
                               disabled={isLoading}
                             />
                           ) : (
-                            <p className="text-gray-800 text-sm">{note.content}</p>
+                            <p className="text-gray-800 text-sm whitespace-pre-wrap">{note.content}</p>
                           )}
-                        </div>
-                        <div className="flex space-x-2 ml-2">
-                          {editingNote?.id === note.id ? (
-                            <Button
-                              onClick={() => user?.uid && updateNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
-                              size="sm"
-                              variant="outline"
-                              disabled={isLoading}
-                            >
-                              {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                'Save'
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() =>
-                                setEditingNote({ id: note.id, content: note.content })
-                              }
-                              size="sm"
-                              variant="outline"
-                              disabled={isLoading}
-                            >
-                              <Pencil className="text-gray-500 h-4 w-4" />
-                            </Button>
-                          )}
-
-                          <Button
-                            onClick={() =>
-                              user?.uid && deleteNote(user.uid, format(selectedDate, "yyyy-MM-dd"), note.id)
-                            }
-                            variant="outline"
-                            size="sm"
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash className="text-gray-500 h-4 w-4" />
-                            )}
-                          </Button>
                         </div>
                       </div>
                     ))
@@ -705,24 +711,26 @@ export default function BigCalendarLeftJournalRightZustand() {
 
                 {/* Add new journal entry */}
                 {selectedDate && (
-                  <div className="flex flex-col items-center mt-2 pt-2 border-t">
+                  <div className="flex flex-col items-center mt-2 pt-4 border-t">
                     <Textarea
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
                       placeholder="Type your journal entry here..."
-                      className="w-full max-w-md"
+                      className="w-full min-h-[100px] resize-none bg-white focus:ring-2 focus:ring-primary/20"
                       disabled={isLoading}
                     />
-                    <Button
-                      onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
-                      className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
-                      disabled={!newNote.trim() || isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
-                      Save Entry
-                    </Button>
+                    <div className="w-full flex justify-end mt-2">
+                      <Button
+                        onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
+                        className="bg-primary hover:bg-primary/90 text-white"
+                        disabled={!newNote.trim() || isLoading}
+                      >
+                        {isLoading ? (
+                          <Loader size="sm" className="mr-2" />
+                        ) : null}
+                        Save Entry
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
