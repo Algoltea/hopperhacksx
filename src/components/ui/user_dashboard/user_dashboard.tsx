@@ -397,17 +397,17 @@ const moodColors = {
   default: "bg-white hover:bg-gray-100"
 };
 
-// Update moodColorPalette to use Tailwind classes
+// Mood Color Palette for the legend
 const moodColorPalette = {
-  happy: "bg-yellow-100",
-  sad: "bg-blue-100",
-  angry: "bg-red-100",
-  anxious: "bg-indigo-100",
-  frustrated: "bg-purple-100",
-  neutral: "bg-gray-100",
-  excited: "bg-orange-100",
-  peaceful: "bg-green-100",
-  reflective: "bg-purple-100",
+  happy: "bg-yellow-100 border-yellow-200",
+  sad: "bg-blue-100 border-blue-200",
+  angry: "bg-red-100 border-red-200",
+  anxious: "bg-indigo-100 border-indigo-200",
+  frustrated: "bg-purple-100 border-purple-200",
+  neutral: "bg-gray-100 border-gray-200",
+  excited: "bg-orange-100 border-orange-200",
+  peaceful: "bg-green-100 border-green-200",
+  reflective: "bg-purple-100 border-purple-200",
 };
 
 export default function BigCalendarLeftJournalRightZustand() {
@@ -561,7 +561,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                                 className="flex items-center gap-1.5 p-1.5 rounded hover:bg-muted/50"
                                 title={mood}
                               >
-                                <div className={`w-2.5 h-2.5 rounded-full ${colorClass} shrink-0`} />
+                                <div className={`w-4 h-4 rounded border-2 ${colorClass} shrink-0`} />
                                 <span className="text-xs capitalize">{mood}</span>
                               </div>
                             ))}
