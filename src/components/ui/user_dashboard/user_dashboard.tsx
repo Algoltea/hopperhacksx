@@ -13,7 +13,7 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { create } from "zustand";
-import { Trash, Pencil } from "lucide-react";
+import { Trash, Pencil, Settings2, Palette } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Timestamp } from "firebase/firestore";
 
@@ -29,6 +29,15 @@ import {
   getDayEntry,
   DayEntry
 } from "@/lib/dashboard/dashboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Define the shape of a note
 interface Note {
@@ -54,6 +63,7 @@ interface CalendarState {
   isLoading: boolean;
   hopperY: number;
   hopperEmotion: string;
+  showMoodLabels: boolean;
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
@@ -64,6 +74,7 @@ interface CalendarState {
   setIsLoading: (loading: boolean) => void;
   setHopperY: (y: number) => void;
   setHopperEmotion: (emotion: string) => void;
+  setShowMoodLabels: (show: boolean) => void;
   resetStore: () => Date;
 
   addNote: (userId: string, dateId: string) => Promise<void>;
@@ -84,6 +95,7 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   isLoading: false,
   hopperY: 0,
   hopperEmotion: "happy",
+  showMoodLabels: true,
 
   setCurrentDate: (date) => set({ currentDate: date }),
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
@@ -98,6 +110,7 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setHopperY: (y) => set({ hopperY: y }),
   setHopperEmotion: (emotion) => set({ hopperEmotion: emotion }),
+  setShowMoodLabels: (show) => set({ showMoodLabels: show }),
   resetStore: () => {
     const today = new Date();
     set({
@@ -110,6 +123,7 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       isLoading: false,
       hopperY: 0,
       hopperEmotion: "happy",
+      showMoodLabels: true,
     });
     return today;
   },
@@ -383,6 +397,19 @@ const moodColors = {
   default: "bg-white hover:bg-gray-100"
 };
 
+// Update moodColorPalette to use Tailwind classes
+const moodColorPalette = {
+  happy: "bg-yellow-100",
+  sad: "bg-blue-100",
+  angry: "bg-red-100",
+  anxious: "bg-indigo-100",
+  frustrated: "bg-purple-100",
+  neutral: "bg-gray-100",
+  excited: "bg-orange-100",
+  peaceful: "bg-green-100",
+  reflective: "bg-purple-100",
+};
+
 export default function BigCalendarLeftJournalRightZustand() {
   const { user } = useAuth();
   const {
@@ -395,6 +422,7 @@ export default function BigCalendarLeftJournalRightZustand() {
     isLoading,
     hopperY,
     hopperEmotion,
+    showMoodLabels,
     setCurrentDate,
     setSelectedDate,
     setNewNote,
@@ -407,7 +435,8 @@ export default function BigCalendarLeftJournalRightZustand() {
     resetStore,
     setHopperY,
     setIsLoading,
-    setHopperEmotion
+    setHopperEmotion,
+    setShowMoodLabels,
   } = useCalendarStore();
 
   // Generate calendar days
@@ -513,7 +542,53 @@ export default function BigCalendarLeftJournalRightZustand() {
             {/* Calendar card */}
             <Card className="rounded-2xl shadow-xl flex-none">
               <CardContent className="p-4">
-                <h2 className="font-bold text-xl mb-4 text-gray-800">Calendar</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-xl text-gray-800">Calendar</h2>
+                  <div className="flex items-center gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Palette className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-fit p-2" align="start" side="left" sideOffset={12}>
+                        <div className="flex flex-col gap-1.5">
+                          <h4 className="text-xs font-medium px-0.5">Mood Legend</h4>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {Object.entries(moodColorPalette).map(([mood, colorClass]) => (
+                              <div
+                                key={mood}
+                                className="flex items-center gap-1.5 p-1.5 rounded hover:bg-muted/50"
+                                title={mood}
+                              >
+                                <div className={`w-2.5 h-2.5 rounded-full ${colorClass} shrink-0`} />
+                                <span className="text-xs capitalize">{mood}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Calendar Settings</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem
+                          checked={showMoodLabels}
+                          onCheckedChange={setShowMoodLabels}
+                        >
+                          Show Mood Labels
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-4">
                   <Button variant="outline" onClick={handlePrevMonth}>
                     Previous
@@ -551,7 +626,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                         onClick={() => handleDateClick(date)}
                       >
                         <span className="text-lg">{date.getDate()}</span>
-                        {isCurrentMonth && dailySummary[dateKey]?.mood && (
+                        {isCurrentMonth && showMoodLabels && dailySummary[dateKey]?.mood && (
                           <span className="text-xs text-gray-600 capitalize">{dailySummary[dateKey]?.mood}</span>
                         )}
                       </div>
