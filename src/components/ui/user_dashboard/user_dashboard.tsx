@@ -363,12 +363,17 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         set((state) => ({
           notesData: { ...state.notesData, [dateId]: notes },
           dailySummary: { ...state.dailySummary, [dateId]: summary },
-          hopperEmotion: summary.hopperEmotion || state.hopperEmotion,
+          // Only update hopperEmotion if this is the selected date
+          ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+            { hopperEmotion: summary.hopperEmotion || "happy" } : {})
         }));
       } else {
         set((state) => ({
           notesData: { ...state.notesData, [dateId]: [] },
           dailySummary: { ...state.dailySummary, [dateId]: null },
+          // Only update hopperEmotion if this is the selected date
+          ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+            { hopperEmotion: "happy" } : {})
         }));
       }
     } catch (error) {
@@ -376,6 +381,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       set((state) => ({
         notesData: { ...state.notesData, [dateId]: [] },
         dailySummary: { ...state.dailySummary, [dateId]: null },
+        // Only update hopperEmotion if this is the selected date
+        ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+          { hopperEmotion: "happy" } : {})
       }));
     } finally {
       set({ isLoading: false });
@@ -427,8 +435,8 @@ export default function BigCalendarLeftJournalRightZustand() {
     setSelectedDate,
     setNewNote,
     setEditingNote,
-    setNotesData,
-    setDailySummary,
+    // setNotesData,
+    // setDailySummary,
     addNote,
     deleteNote,
     updateNote,
@@ -454,22 +462,48 @@ export default function BigCalendarLeftJournalRightZustand() {
       const end = endOfMonth(date);
       const daysInMonth = eachDayOfInterval({ start, end });
       
-      // Fetch all days in parallel
-      await Promise.all(
+      // Collect all data first
+      const monthData = await Promise.all(
         daysInMonth.map(async (day) => {
           const dateId = format(day, "yyyy-MM-dd");
           try {
             const dayEntry = await getDayEntry(userId, dateId);
-            if (dayEntry) {
-              const { notes, ...summary } = dayEntry;
-              setNotesData(dateId, notes);
-              setDailySummary(dateId, summary);
-            }
+            return { dateId, dayEntry };
           } catch (error) {
             console.error(`Error fetching data for ${dateId}:`, error);
+            return { dateId, dayEntry: null };
           }
         })
       );
+
+      // Create new state updates
+      const updates: Partial<CalendarState> = {};
+      const newNotesData = { ...useCalendarStore.getState().notesData };
+      const newDailySummary = { ...useCalendarStore.getState().dailySummary };
+      
+      monthData.forEach(({ dateId, dayEntry }) => {
+        if (dayEntry) {
+          const { notes, ...summary } = dayEntry;
+          newNotesData[dateId] = notes;
+          newDailySummary[dateId] = summary;
+        } else {
+          newNotesData[dateId] = [];
+          newDailySummary[dateId] = null;
+        }
+      });
+
+      updates.notesData = newNotesData;
+      updates.dailySummary = newDailySummary;
+
+      // Only update hopperEmotion if we have a selected date
+      const { selectedDate } = useCalendarStore.getState();
+      if (selectedDate) {
+        const selectedDateId = format(selectedDate, "yyyy-MM-dd");
+        const selectedDayEntry = monthData.find(d => d.dateId === selectedDateId)?.dayEntry;
+        updates.hopperEmotion = selectedDayEntry?.hopperEmotion || "happy";
+      }
+
+      useCalendarStore.setState(updates);
     } catch (error) {
       console.error("Error fetching month data:", error);
     } finally {
@@ -498,10 +532,8 @@ export default function BigCalendarLeftJournalRightZustand() {
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     const dateId = format(date, "yyyy-MM-dd");
-    // Update Hopper's emotion if we have data for this date
-    if (dailySummary[dateId]?.hopperEmotion) {
-      setHopperEmotion(dailySummary[dateId]?.hopperEmotion || "happy");
-    }
+    // Update Hopper's emotion if we have data for this date, otherwise default to happy
+    setHopperEmotion(dailySummary[dateId]?.hopperEmotion || "happy");
   };
 
   // Navigation - now includes data fetching
