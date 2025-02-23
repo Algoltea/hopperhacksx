@@ -12,10 +12,10 @@ Users log their daily journal entries, and Hopper offers feedback and encouragem
 We used Firebase for authentication and data storage, Firebase Auth to manage user sessions, and Firestore to store journal entries and mood data associated with users. Next.js provided a framework for building the UI and API routes for fetching and updating user data. We used Zustand to manage global state, ensuring smooth updates across the calendar and journal. Together, these technologies created a responsive real-time journaling experience.
 
 ## Challenges we ran into
-Delegating tasks was difficult for us to do at the beginning of development. We have worked as solo devs for most of our time learning CS, so figuring out build a project from multiple angles at once and meet in the middle had a bit of a learning curve for us.
+Delegating tasks was difficult for us to do at the beginning of development. We have worked as solo devs for most of our time learning CS, so figuring out how build a project from multiple angles at once and meet in the middle had a bit of a learning curve for us.
 
 ## Accomplishments that we're proud of
-We're proud of the 
+We are very proud of our success in working together as a team and utilizing technologies that most of us have not worked with before. We managed to work through the moments of frustration and confusion, and put together a polished and functional product, adapting and learning along the way. We created something that we can be proud of, and gained valuable experience that will stay with us long after the event has ended.
 
 ## What we learned
 Developing as part of a group is something we have not done much of before.
