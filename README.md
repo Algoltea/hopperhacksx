@@ -11,7 +11,7 @@ Users log their daily journal entries, and Hopper offers feedback and encouragem
 ## How we built it
 
 ## Challenges we ran into
-Delegating tasks was difficult for us to do at the beginning of development. We have worked as solo devs for most of our time learning CS, so figuring out build a project from multiple angles at once had a bit of a learning curve.
+Delegating tasks was difficult for us to do at the beginning of development. We have worked as solo devs for most of our time learning CS, so figuring out build a project from multiple angles at once and meet in the middle had a bit of a learning curve for us.
 
 ## Accomplishments that we're proud of
 
