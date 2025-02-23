@@ -295,7 +295,7 @@ export default function Home() {
                   {/* Sample Entries */}
                   <div className="space-y-3">
                     <div className="p-3 border rounded-lg bg-white">
-                      <p className="text-sm text-gray-500 mb-1">Today, 2:30 PM</p>
+                      <p className="text-sm text-gray-500 mb-1">Today, 7:30 AM</p>
                       <p className="text-sm text-gray-800">Had a peaceful meditation session this morning. It&apos;s amazing how just 10 minutes of mindfulness can change the entire day&apos;s perspective.</p>
                     </div>
                     
@@ -305,7 +305,7 @@ export default function Home() {
                     </div>
 
                     <div className="p-3 border rounded-lg bg-white">
-                      <p className="text-sm text-gray-500 mb-1">Yesterday, 8:45 PM</p>
+                      <p className="text-sm text-gray-500 mb-1">Today, 8:45 PM</p>
                       <p className="text-sm text-gray-800">Reflecting on today&apos;s achievements. Completed that project I&apos;ve been working on and treated myself to a nice dinner. Small wins matter! 🌟</p>
                     </div>
                   </div>
