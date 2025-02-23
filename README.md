@@ -71,7 +71,7 @@ npm run dev
    - Go to [Firebase Console](https://console.firebase.google.com/)
    - Create a new project or select existing
    - Navigate to Project Settings
-   - Under "Your apps", select Web app (<//>)
+   - Under "Your apps", select Web app (</>)
    - Register app and copy configuration values
 
 Note: Never commit your `.env.local` file or expose your API keys publicly.
