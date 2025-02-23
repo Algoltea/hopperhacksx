@@ -13,13 +13,14 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { create } from "zustand";
-import { Trash, Pencil, Loader2 } from "lucide-react";
+import { Trash, Pencil, Settings2, Palette, RefreshCw, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Timestamp } from "firebase/firestore";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader } from "@/components/ui/loading";
 import {
   createNote,
   updateNote as updateFirebaseNote,
@@ -28,6 +29,16 @@ import {
   getDayEntry,
   DayEntry
 } from "@/lib/dashboard/dashboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { JournalRecommendation } from "@/lib/ai/journal-recommendations";
 
 // Define the shape of a note
 interface Note {
@@ -53,6 +64,10 @@ interface CalendarState {
   isLoading: boolean;
   hopperY: number;
   hopperEmotion: string;
+  showMoodLabels: boolean;
+  currentRecommendation: JournalRecommendation | null;
+  isLoadingRecommendation: boolean;
+  isRecommendationExpanded: boolean;
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
@@ -63,6 +78,7 @@ interface CalendarState {
   setIsLoading: (loading: boolean) => void;
   setHopperY: (y: number) => void;
   setHopperEmotion: (emotion: string) => void;
+  setShowMoodLabels: (show: boolean) => void;
   resetStore: () => Date;
 
   addNote: (userId: string, dateId: string) => Promise<void>;
@@ -70,6 +86,10 @@ interface CalendarState {
   updateNote: (userId: string, dateId: string) => Promise<void>;
   fetchNotes: (userId: string, dateId: string) => Promise<void>;
   analyzeNotes: (userId: string, dateId: string) => Promise<void>;
+  setCurrentRecommendation: (recommendation: JournalRecommendation | null) => void;
+  setIsLoadingRecommendation: (loading: boolean) => void;
+  fetchRecommendation: (userId: string, dateId: string) => Promise<void>;
+  setIsRecommendationExpanded: (expanded: boolean) => void;
 }
 
 // Create the Zustand store
@@ -83,6 +103,10 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   isLoading: false,
   hopperY: 0,
   hopperEmotion: "happy",
+  showMoodLabels: true,
+  currentRecommendation: null,
+  isLoadingRecommendation: false,
+  isRecommendationExpanded: false,
 
   setCurrentDate: (date) => set({ currentDate: date }),
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
@@ -97,6 +121,7 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setHopperY: (y) => set({ hopperY: y }),
   setHopperEmotion: (emotion) => set({ hopperEmotion: emotion }),
+  setShowMoodLabels: (show) => set({ showMoodLabels: show }),
   resetStore: () => {
     const today = new Date();
     set({
@@ -109,6 +134,10 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       isLoading: false,
       hopperY: 0,
       hopperEmotion: "happy",
+      showMoodLabels: true,
+      currentRecommendation: null,
+      isLoadingRecommendation: false,
+      isRecommendationExpanded: false,
     });
     return today;
   },
@@ -188,6 +217,8 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         notesData: { ...state.notesData, [dateId]: notes },
         newNote: "",
         isLoading: false,
+        isRecommendationExpanded: false,
+        currentRecommendation: null,
       }));
 
       // Analyze notes and update daily summary
@@ -348,12 +379,17 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         set((state) => ({
           notesData: { ...state.notesData, [dateId]: notes },
           dailySummary: { ...state.dailySummary, [dateId]: summary },
-          hopperEmotion: summary.hopperEmotion || state.hopperEmotion,
+          // Only update hopperEmotion if this is the selected date
+          ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+            { hopperEmotion: summary.hopperEmotion || "happy" } : {})
         }));
       } else {
         set((state) => ({
           notesData: { ...state.notesData, [dateId]: [] },
           dailySummary: { ...state.dailySummary, [dateId]: null },
+          // Only update hopperEmotion if this is the selected date
+          ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+            { hopperEmotion: "happy" } : {})
         }));
       }
     } catch (error) {
@@ -361,11 +397,62 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       set((state) => ({
         notesData: { ...state.notesData, [dateId]: [] },
         dailySummary: { ...state.dailySummary, [dateId]: null },
+        // Only update hopperEmotion if this is the selected date
+        ...(format(get().selectedDate || new Date(), "yyyy-MM-dd") === dateId ? 
+          { hopperEmotion: "happy" } : {})
       }));
     } finally {
       set({ isLoading: false });
     }
   },
+
+  setCurrentRecommendation: (recommendation) => set({ currentRecommendation: recommendation }),
+  setIsLoadingRecommendation: (loading) => set({ isLoadingRecommendation: loading }),
+
+  fetchRecommendation: async (userId, dateId) => {
+    const { notesData } = get();
+    const notes = notesData[dateId] || [];
+
+    try {
+      set({ isLoadingRecommendation: true });
+
+      // Get time-based context
+      const now = new Date();
+      const hour = now.getHours();
+      const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+      const dayOfWeek = format(now, "EEEE").toLowerCase();
+
+      // Prepare recent entries context
+      const recentEntries = notes.map(note => ({
+        content: note.content,
+        mood: note.mood,
+        timestamp: note.timestamp || format(note.createdAt.toDate(), "yyyy-MM-dd HH:mm:ss")
+      }));
+
+      const response = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          context: {
+            recentEntries,
+            timeOfDay,
+            dayOfWeek
+          }
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch recommendation");
+      
+      const recommendation = await response.json();
+      set({ currentRecommendation: recommendation });
+    } catch (error) {
+      console.error("Error fetching recommendation:", error);
+    } finally {
+      set({ isLoadingRecommendation: false });
+    }
+  },
+
+  setIsRecommendationExpanded: (expanded) => set({ isRecommendationExpanded: expanded }),
 }));
 
 // Add this after the imports
@@ -373,12 +460,26 @@ const moodColors = {
   happy: "bg-yellow-100 hover:bg-yellow-200",
   sad: "bg-blue-100 hover:bg-blue-200",
   angry: "bg-red-100 hover:bg-red-200",
-  anxious: "bg-purple-100 hover:bg-purple-200",
+  anxious: "bg-indigo-100 hover:bg-indigo-200",
   frustrated: "bg-purple-100 hover:bg-purple-200",
   neutral: "bg-gray-100 hover:bg-gray-200",
   excited: "bg-orange-100 hover:bg-orange-200",
   peaceful: "bg-green-100 hover:bg-green-200",
+  reflective: "bg-purple-100 hover:bg-purple-200",
   default: "bg-white hover:bg-gray-100"
+};
+
+// Mood Color Palette for the legend
+const moodColorPalette = {
+  happy: "bg-yellow-100 border-yellow-200",
+  sad: "bg-blue-100 border-blue-200",
+  angry: "bg-red-100 border-red-200",
+  anxious: "bg-indigo-100 border-indigo-200",
+  frustrated: "bg-purple-100 border-purple-200",
+  neutral: "bg-gray-100 border-gray-200",
+  excited: "bg-orange-100 border-orange-200",
+  peaceful: "bg-green-100 border-green-200",
+  reflective: "bg-purple-100 border-purple-200",
 };
 
 export default function BigCalendarLeftJournalRightZustand() {
@@ -393,20 +494,28 @@ export default function BigCalendarLeftJournalRightZustand() {
     isLoading,
     hopperY,
     hopperEmotion,
+    showMoodLabels,
+    currentRecommendation,
+    isLoadingRecommendation,
+    isRecommendationExpanded,
     setCurrentDate,
     setSelectedDate,
     setNewNote,
     setEditingNote,
-    setNotesData,
-    setDailySummary,
+    // setNotesData,
+    // setDailySummary,
     addNote,
     deleteNote,
     updateNote,
     resetStore,
-    analyzeNotes,
     setHopperY,
     setIsLoading,
-    setHopperEmotion
+    setHopperEmotion,
+    setShowMoodLabels,
+    // setCurrentRecommendation,
+    // setIsLoadingRecommendation,
+    fetchRecommendation,
+    setIsRecommendationExpanded,
   } = useCalendarStore();
 
   // Generate calendar days
@@ -424,22 +533,48 @@ export default function BigCalendarLeftJournalRightZustand() {
       const end = endOfMonth(date);
       const daysInMonth = eachDayOfInterval({ start, end });
       
-      // Fetch all days in parallel
-      await Promise.all(
+      // Collect all data first
+      const monthData = await Promise.all(
         daysInMonth.map(async (day) => {
           const dateId = format(day, "yyyy-MM-dd");
           try {
             const dayEntry = await getDayEntry(userId, dateId);
-            if (dayEntry) {
-              const { notes, ...summary } = dayEntry;
-              setNotesData(dateId, notes);
-              setDailySummary(dateId, summary);
-            }
+            return { dateId, dayEntry };
           } catch (error) {
             console.error(`Error fetching data for ${dateId}:`, error);
+            return { dateId, dayEntry: null };
           }
         })
       );
+
+      // Create new state updates
+      const updates: Partial<CalendarState> = {};
+      const newNotesData = { ...useCalendarStore.getState().notesData };
+      const newDailySummary = { ...useCalendarStore.getState().dailySummary };
+      
+      monthData.forEach(({ dateId, dayEntry }) => {
+        if (dayEntry) {
+          const { notes, ...summary } = dayEntry;
+          newNotesData[dateId] = notes;
+          newDailySummary[dateId] = summary;
+        } else {
+          newNotesData[dateId] = [];
+          newDailySummary[dateId] = null;
+        }
+      });
+
+      updates.notesData = newNotesData;
+      updates.dailySummary = newDailySummary;
+
+      // Only update hopperEmotion if we have a selected date
+      const { selectedDate } = useCalendarStore.getState();
+      if (selectedDate) {
+        const selectedDateId = format(selectedDate, "yyyy-MM-dd");
+        const selectedDayEntry = monthData.find(d => d.dateId === selectedDateId)?.dayEntry;
+        updates.hopperEmotion = selectedDayEntry?.hopperEmotion || "happy";
+      }
+
+      useCalendarStore.setState(updates);
     } catch (error) {
       console.error("Error fetching month data:", error);
     } finally {
@@ -468,10 +603,8 @@ export default function BigCalendarLeftJournalRightZustand() {
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
     const dateId = format(date, "yyyy-MM-dd");
-    // Update Hopper's emotion if we have data for this date
-    if (dailySummary[dateId]?.hopperEmotion) {
-      setHopperEmotion(dailySummary[dateId]?.hopperEmotion || "happy");
-    }
+    // Update Hopper's emotion if we have data for this date, otherwise default to happy
+    setHopperEmotion(dailySummary[dateId]?.hopperEmotion || "happy");
   };
 
   // Navigation - now includes data fetching
@@ -495,14 +628,6 @@ export default function BigCalendarLeftJournalRightZustand() {
     return () => clearInterval(interval);
   }, [setHopperY]);
 
-  // Analyze notes when date is selected
-  useEffect(() => {
-    if (user?.uid && selectedDate) {
-      const dateId = format(selectedDate, "yyyy-MM-dd");
-      analyzeNotes(user.uid, dateId);
-    }
-  }, [user?.uid, selectedDate, analyzeNotes]);
-
   return (
     <div className="h-screen w-full bg-[#f4f0e5] flex flex-col overflow-hidden">
    
@@ -512,7 +637,7 @@ export default function BigCalendarLeftJournalRightZustand() {
         <div className="max-w-6xl w-full h-full flex flex-row gap-8">
           {/* Left side: Calendar + quote */}
           <motion.div
-            className="flex flex-col gap-4 h-full w-1/2"
+            className="flex flex-col gap-2 h-full w-1/2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
@@ -520,7 +645,53 @@ export default function BigCalendarLeftJournalRightZustand() {
             {/* Calendar card */}
             <Card className="rounded-2xl shadow-xl flex-none">
               <CardContent className="p-4">
-                <h2 className="font-bold text-xl mb-4 text-gray-800">Calendar</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-xl text-gray-800">Calendar</h2>
+                  <div className="flex items-center gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Palette className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-fit p-2" align="start" side="left" sideOffset={12}>
+                        <div className="flex flex-col gap-1.5">
+                          <h4 className="text-xs font-medium px-0.5">Mood Legend</h4>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {Object.entries(moodColorPalette).map(([mood, colorClass]) => (
+                              <div
+                                key={mood}
+                                className="flex items-center gap-1.5 p-1.5 rounded hover:bg-muted/50"
+                                title={mood}
+                              >
+                                <div className={`w-4 h-4 rounded border-2 ${colorClass} shrink-0`} />
+                                <span className="text-xs capitalize">{mood}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Calendar Settings</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem
+                          checked={showMoodLabels}
+                          onCheckedChange={setShowMoodLabels}
+                        >
+                          Show Mood Labels
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-4">
                   <Button variant="outline" onClick={handlePrevMonth}>
                     Previous
@@ -558,7 +729,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                         onClick={() => handleDateClick(date)}
                       >
                         <span className="text-lg">{date.getDate()}</span>
-                        {isCurrentMonth && dailySummary[dateKey]?.mood && (
+                        {isCurrentMonth && showMoodLabels && dailySummary[dateKey]?.mood && (
                           <span className="text-xs text-gray-600 capitalize">{dailySummary[dateKey]?.mood}</span>
                         )}
                       </div>
@@ -589,7 +760,7 @@ export default function BigCalendarLeftJournalRightZustand() {
 
               {/* Speech Bubble with Analysis */}
               <motion.div
-                className="relative bg-white border rounded-lg shadow-md p-4 text-gray-700 max-w-xs ml-4"
+                className="relative bg-white border rounded-2xl shadow-md p-4 text-gray-700 max-w-xs ml-4 before:content-[''] before:absolute before:left-[-8px] before:top-[50%] before:w-4 before:h-4 before:bg-white before:border-l before:border-b before:border-gray-300 before:-translate-y-1/2 before:rotate-45 before:shadow-[-3px_3px_3px_rgba(0,0,0,0.05)]"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4 }}
@@ -599,18 +770,12 @@ export default function BigCalendarLeftJournalRightZustand() {
                     <p className="text-sm mb-2">
                       {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.hopperResponse || "Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?"}
                     </p>
-                    {/* <div className="text-xs text-gray-500 mt-2 border-t pt-2">
-                      <p>Mood: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.mood || 'Not analyzed'}</p>
-                      <p>Analysis: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.analysis || 'No analysis available'}</p>
-                      <p>Confidence: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.confidence?.toFixed(2) || '0.00'}</p>
-                    </div> */}
                   </>
                 ) : (
                   <p className="text-sm mb-2">
                     Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?
                   </p>
                 )}
-                <div className="absolute bottom-1 left-[-10px] w-4 h-4 bg-white border border-gray-300 rotate-45"></div>
               </motion.div>
             </motion.div>
             </motion.div>
@@ -626,22 +791,68 @@ export default function BigCalendarLeftJournalRightZustand() {
                 <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
 
                 {/* Notes list with loading state */}
-                <div className="flex flex-col space-y-2 overflow-y-auto flex-1 pr-2 pb-0">
+                <div className="flex flex-col space-y-3 overflow-y-auto flex-1 pr-2 pb-0">
                   {isLoading ? (
                     <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+                      <Loader size="lg" />
                     </div>
                   ) : (
                     selectedDate &&
                     notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
                       <div
                         key={note.id}
-                        className="p-2 border rounded bg-white flex justify-between items-center"
+                        className="p-3 border rounded-lg bg-white hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-full">
-                          <p className="text-sm text-gray-500">
-                            {note.timestamp || format(note.createdAt.toDate(), 'PPP h:mm a')}
-                          </p>
+                        <div className="w-full space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                              {note.timestamp || format(note.createdAt.toDate(), 'PPP h:mm a')}
+                            </p>
+                            <div className="flex space-x-2">
+                              {editingNote?.id === note.id ? (
+                                <Button
+                                  onClick={() => user?.uid && updateNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isLoading}
+                                >
+                                  {isLoading ? (
+                                    <Loader size="sm" />
+                                  ) : (
+                                    'Save'
+                                  )}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() =>
+                                    setEditingNote({ id: note.id, content: note.content })
+                                  }
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-gray-500 hover:text-gray-700"
+                                  disabled={isLoading}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              <Button
+                                onClick={() =>
+                                  user?.uid && deleteNote(user.uid, format(selectedDate, "yyyy-MM-dd"), note.id)
+                                }
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-gray-700"
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <Loader size="sm" />
+                                ) : (
+                                  <Trash className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
 
                           {editingNote?.id === note.id ? (
                             <Textarea
@@ -649,54 +860,12 @@ export default function BigCalendarLeftJournalRightZustand() {
                               onChange={(e) =>
                                 setEditingNote({ id: note.id, content: e.target.value })
                               }
-                              className="w-full"
+                              className="w-full min-h-[100px] text-sm"
                               disabled={isLoading}
                             />
                           ) : (
-                            <p className="text-gray-800 text-sm">{note.content}</p>
+                            <p className="text-gray-800 text-sm whitespace-pre-wrap">{note.content}</p>
                           )}
-                        </div>
-                        <div className="flex space-x-2 ml-2">
-                          {editingNote?.id === note.id ? (
-                            <Button
-                              onClick={() => user?.uid && updateNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
-                              size="sm"
-                              variant="outline"
-                              disabled={isLoading}
-                            >
-                              {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                'Save'
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() =>
-                                setEditingNote({ id: note.id, content: note.content })
-                              }
-                              size="sm"
-                              variant="outline"
-                              disabled={isLoading}
-                            >
-                              <Pencil className="text-gray-500 h-4 w-4" />
-                            </Button>
-                          )}
-
-                          <Button
-                            onClick={() =>
-                              user?.uid && deleteNote(user.uid, format(selectedDate, "yyyy-MM-dd"), note.id)
-                            }
-                            variant="outline"
-                            size="sm"
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash className="text-gray-500 h-4 w-4" />
-                            )}
-                          </Button>
                         </div>
                       </div>
                     ))
@@ -705,24 +874,108 @@ export default function BigCalendarLeftJournalRightZustand() {
 
                 {/* Add new journal entry */}
                 {selectedDate && (
-                  <div className="flex flex-col items-center mt-2 pt-2 border-t">
-                    <Textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Type your journal entry here..."
-                      className="w-full max-w-md"
-                      disabled={isLoading}
-                    />
-                    <Button
-                      onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
-                      className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
-                      disabled={!newNote.trim() || isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : null}
-                      Save Entry
-                    </Button>
+                  <div className="flex flex-col items-center mt-2 pt-4 border-t">
+                    <div className="w-full flex items-start gap-2">
+                      <Textarea
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        placeholder="Type your journal entry here..."
+                        className="flex-1 min-h-[100px] resize-none bg-white focus:ring-2 focus:ring-primary/20"
+                        disabled={isLoading}
+                      />
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (currentRecommendation) {
+                              setIsRecommendationExpanded(!isRecommendationExpanded);
+                            } else {
+                              fetchRecommendation(user?.uid || "", format(selectedDate, "yyyy-MM-dd"));
+                              setIsRecommendationExpanded(true);
+                            }
+                          }}
+                          disabled={isLoadingRecommendation}
+                          className="h-8 w-8"
+                        >
+                          {isLoadingRecommendation ? (
+                            <Loader className="h-4 w-4" />
+                          ) : currentRecommendation ? (
+                            isRecommendationExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Collapsible recommendation section */}
+                    {currentRecommendation && isRecommendationExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full overflow-hidden"
+                      >
+                        <div className="bg-white/90 rounded-lg shadow-sm p-3 mt-2 text-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500">
+                                {currentRecommendation.category}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                {currentRecommendation.difficulty}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ~{currentRecommendation.estimatedTime} min
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => fetchRecommendation(user?.uid || "", format(selectedDate, "yyyy-MM-dd"))}
+                              disabled={isLoadingRecommendation}
+                              className="h-6 w-6"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-600 italic mb-2">
+                            {currentRecommendation.hopperIntro}
+                          </p>
+                          <div className="space-y-1">
+                            <p className="text-gray-800 text-sm">
+                              {currentRecommendation.prompt}
+                            </p>
+                            <div className="mt-2 space-y-1">
+                              {currentRecommendation.followUp.map((question: string, index: number) => (
+                                <p key={index} className="text-xs text-gray-600">
+                                  • {question}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <div className="w-full flex justify-end mt-2">
+                      <Button
+                        onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}
+                        className="bg-primary hover:bg-primary/90 text-white"
+                        disabled={!newNote.trim() || isLoading}
+                      >
+                        {isLoading ? (
+                          <Loader size="sm" className="mr-2" />
+                        ) : null}
+                        Save Entry
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
