@@ -405,7 +405,6 @@ export default function BigCalendarLeftJournalRightZustand() {
     deleteNote,
     updateNote,
     resetStore,
-    analyzeNotes,
     setHopperY,
     setIsLoading,
     setHopperEmotion
@@ -497,14 +496,6 @@ export default function BigCalendarLeftJournalRightZustand() {
     return () => clearInterval(interval);
   }, [setHopperY]);
 
-  // Analyze notes when date is selected
-  useEffect(() => {
-    if (user?.uid && selectedDate) {
-      const dateId = format(selectedDate, "yyyy-MM-dd");
-      analyzeNotes(user.uid, dateId);
-    }
-  }, [user?.uid, selectedDate, analyzeNotes]);
-
   return (
     <div className="h-screen w-full bg-[#f4f0e5] flex flex-col overflow-hidden">
    
@@ -591,7 +582,7 @@ export default function BigCalendarLeftJournalRightZustand() {
 
               {/* Speech Bubble with Analysis */}
               <motion.div
-                className="relative bg-white border rounded-lg shadow-md p-4 text-gray-700 max-w-xs ml-4"
+                className="relative bg-white border rounded-2xl shadow-md p-4 text-gray-700 max-w-xs ml-4 before:content-[''] before:absolute before:left-[-8px] before:top-[50%] before:w-4 before:h-4 before:bg-white before:border-l before:border-b before:border-gray-300 before:-translate-y-1/2 before:rotate-45 before:shadow-[-3px_3px_3px_rgba(0,0,0,0.05)]"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4 }}
@@ -601,18 +592,12 @@ export default function BigCalendarLeftJournalRightZustand() {
                     <p className="text-sm mb-2">
                       {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.hopperResponse || "Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?"}
                     </p>
-                    {/* <div className="text-xs text-gray-500 mt-2 border-t pt-2">
-                      <p>Mood: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.mood || 'Not analyzed'}</p>
-                      <p>Analysis: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.analysis || 'No analysis available'}</p>
-                      <p>Confidence: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.confidence?.toFixed(2) || '0.00'}</p>
-                    </div> */}
                   </>
                 ) : (
                   <p className="text-sm mb-2">
                     Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?
                   </p>
                 )}
-                <div className="absolute bottom-1 left-[-10px] w-4 h-4 bg-white border border-gray-300 rotate-45"></div>
               </motion.div>
             </motion.div>
             </motion.div>
