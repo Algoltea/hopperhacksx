@@ -110,7 +110,6 @@ export default function DemoAuthForm() {
               <p className="text-sm text-gray-700">
                 {isLogin ? "Need an account?" : "Already have an account?"}{" "}
                 <button className="text-slate-600 hover:underline" onClick={toggleForm}>
-                <button className="text-slate-600 hover:underline" onClick={toggleForm}>
                   {isLogin ? "Register now" : "Log in"}
                 </button>
               </p>
