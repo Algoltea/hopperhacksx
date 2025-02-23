@@ -61,7 +61,7 @@ export default function DemoAuthForm() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#f4f0e5]">
+    <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
