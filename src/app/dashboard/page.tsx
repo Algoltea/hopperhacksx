@@ -4,7 +4,7 @@ import BigCalendarLeftJournalRightZustand from '@/components/ui/user_dashboard/u
 
 export default function DashboardPage() {
   return (
-    <div className="w-full -mt-6 -mx-6">
+    <div>
       <BigCalendarLeftJournalRightZustand />
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
   addMonths,
   subMonths,
@@ -15,10 +15,9 @@ import { motion } from "framer-motion";
 import { create } from "zustand";
 import { Trash, Pencil } from "lucide-react";
 
-// shadcn/ui components:
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components//ui/textarea";
+import { Textarea } from "@/components/ui/textarea";
 
 // Define the shape of a note
 interface Note {
@@ -56,19 +55,14 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   editingNote: null,
   motivationalQuote: "Stay strong, keep pushing forward!",
 
-  // Set the current displayed month
   setCurrentDate: (date) => set({ currentDate: date }),
 
-  // Set the selected date (also clear new note)
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
 
-  // Track the text for a new note
   setNewNote: (note) => set({ newNote: note }),
 
-  // Track which note we're editing (ID + content)
   setEditingNote: (note) => set({ editingNote: note }),
 
-  // Add a new note for the selected date
   addNote: () => {
     const { selectedDate, newNote, notesData } = get();
     if (!selectedDate || !newNote.trim()) return;
@@ -90,7 +84,6 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     });
   },
 
-  // Delete an existing note
   deleteNote: (dateKey, noteId) => {
     set((state) => ({
       notesData: {
@@ -100,7 +93,6 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     }));
   },
 
-  // Update a note (when saving an edit)
   updateNote: (dateKey) => {
     set((state) => {
       if (!state.editingNote) return state;
@@ -119,7 +111,6 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     });
   },
 
-  // Generate a motivational quote
   generateMotivationalQuote: () => {
     const quotes = [
       "You are capable of amazing things!",
@@ -133,7 +124,6 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 }));
 
-// The main page component
 export default function BigCalendarLeftJournalRightZustand() {
   const {
     currentDate,
@@ -152,205 +142,189 @@ export default function BigCalendarLeftJournalRightZustand() {
     generateMotivationalQuote,
   } = useCalendarStore();
 
-  // Compute the array of days to display in the calendar
+  // Handle date click
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    generateMotivationalQuote();
+  };
+
+  // Navigation
+  const handlePrevMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+  const handleNextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+
+  // Generate calendar days
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const weekStart = startOfWeek(monthStart);
   const weekEnd = endOfWeek(monthEnd);
   const calendarDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-  // Function to select a date and generate a motivational quote
-  const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
-    generateMotivationalQuote();
-  };
-
-  // Move to previous month
-  const handlePrevMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
-  };
-
-  // Move to next month
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
-  };
+  // We'll use a simple top bar with a placeholder logo and no scrolling.
 
   return (
-    <div className="h-full flex flex-col md:flex-row gap-4">
-      {/* Left side: Calendar + Quote */}
-      <motion.div 
-        className="w-full md:w-1/2 flex flex-col gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card className="flex-none rounded-xl shadow-lg bg-white/80 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-xl text-slate-800">Calendar</h2>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handlePrevMonth} size="sm">
-                  Previous
-                </Button>
-                <span className="font-bold text-sm text-slate-700 min-w-[100px] text-center">
-                  {format(currentDate, "MMMM yyyy")}
-                </span>
-                <Button variant="outline" onClick={handleNextMonth} size="sm">
-                  Next
-                </Button>
-              </div>
-            </div>
+    <div className="h-screen w-full bg-[#f4f0e5] flex flex-col overflow-hidden">
+   
 
-            {/* Day headers */}
-            <div className="grid grid-cols-7 text-center font-medium mb-1 text-slate-600">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dn) => (
-                <div key={dn} className="text-xs">{dn}</div>
-              ))}
-            </div>
+      {/* Main content, no scrolling, everything must fit */}
+      <main className="flex-1 flex items-center justify-center px-4 py-4 overflow-hidden">
+        <div className="max-w-6xl w-full h-full flex flex-row gap-8">
+          {/* Left side: Calendar + quote */}
+          <motion.div
+            className="flex flex-col gap-4 h-full w-1/2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {/* Calendar card */}
+            <Card className="rounded-2xl shadow-xl flex-none">
+              <CardContent className="p-4">
+                <h2 className="font-bold text-xl mb-4 text-gray-800">Calendar</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <Button variant="outline" onClick={handlePrevMonth}>
+                    Previous
+                  </Button>
+                  <h2 className="font-bold text-xl text-gray-800">
+                    {format(currentDate, "MMMM yyyy")}
+                  </h2>
+                  <Button variant="outline" onClick={handleNextMonth}>
+                    Next
+                  </Button>
+                </div>
 
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((date, idx) => {
-                const isCurrentMonth = date.getMonth() === currentDate.getMonth();
-                const isSelected =
-                  selectedDate && date.toDateString() === selectedDate.toDateString();
-                const hasNotes = notesData[format(date, "yyyy-MM-dd")]?.length > 0;
-                
-                return (
-                  <motion.div
-                    key={idx}
-                    whileHover={{ scale: 1.05 }}
-                    className={`
-                      aspect-square flex flex-col items-center justify-center rounded-lg cursor-pointer
-                      transition-colors relative text-xs
-                      ${isCurrentMonth ? "bg-white" : "bg-slate-100"}
-                      ${isSelected ? "ring-2 ring-primary shadow-md" : "hover:bg-slate-50"}
-                    `}
-                    onClick={() => handleDateClick(date)}
-                  >
-                    <span className={`
-                      font-medium
-                      ${isCurrentMonth ? "text-slate-900" : "text-slate-400"}
-                      ${isSelected ? "text-primary" : ""}
-                    `}>
-                      {date.getDate()}
-                    </span>
-                    {hasNotes && (
-                      <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary"></div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                {/* Day headers */}
+                <div className="grid grid-cols-7 text-center font-bold mb-2 text-gray-700">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dn) => (
+                    <div key={dn}>{dn}</div>
+                  ))}
+                </div>
 
-        {/* Motivational quote */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="flex-none"
-        >
-          <Card className="rounded-xl shadow-lg bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardContent className="p-4">
-              <p className="text-slate-700 italic text-sm">{motivationalQuote}</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
+                {/* Calendar days, smaller so everything fits */}
+                <div className="grid grid-cols-7 grid-rows-5 gap-2">
+                  {calendarDays.map((date, idx) => {
+                    const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                    const isSelected =
+                      selectedDate && date.toDateString() === selectedDate.toDateString();
+                    return (
+                      <div
+                        key={idx}
+                        className={`h-16 border border-gray-300 flex items-center justify-center rounded-md cursor-pointer transition-colors
+                          ${isCurrentMonth ? "bg-white text-gray-900" : "bg-gray-200 text-gray-500"}
+                          ${isSelected ? "ring-2 ring-slate-500" : "hover:bg-gray-100"}`}
+                        onClick={() => handleDateClick(date)}
+                      >
+                        {date.getDate()}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* Right side: Journal entries */}
-      <motion.div 
-        className="w-full md:w-1/2 flex flex-col"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Card className="flex-1 rounded-xl shadow-lg bg-white/80 backdrop-blur">
-          <CardContent className="p-4 flex flex-col h-full">
-            <h2 className="font-bold text-xl mb-4 text-slate-800">
-              {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Select a date"}
-            </h2>
+            {/* Motivational Quote card */}
+            <Card className="rounded-2xl shadow-xl flex-none">
+              <CardContent className="p-4">
+                <p className="text-gray-700 italic">{motivationalQuote}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-            {/* Display existing notes */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
-              {selectedDate &&
-                notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
-                  <motion.div
-                    key={note.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-lg bg-white shadow-sm border border-slate-100"
-                  >
-                    <div className="w-full space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-slate-500">{note.timestamp}</p>
-                        <div className="flex space-x-1">
+          {/* Right side: Journal entries, no scrolling */}
+          <motion.div
+            className="flex flex-col h-full w-1/2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Card className="rounded-2xl shadow-xl flex-1">
+              <CardContent className="p-4 flex flex-col h-full">
+                <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
+
+                {/* We'll display notes, but also make sure no scrolling happens by restricting height. */}
+                <div className="flex flex-col space-y-2">
+                  {selectedDate &&
+                    notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
+                      <div
+                        key={note.id}
+                        className="p-2 border rounded bg-white flex justify-between items-center"
+                      >
+                        <div className="w-full">
+                          <p className="text-sm text-gray-500">{note.timestamp}</p>
+
+                          {editingNote?.id === note.id ? (
+                            <Textarea
+                              value={editingNote.content}
+                              onChange={(e) =>
+                                setEditingNote({ id: note.id, content: e.target.value })
+                              }
+                              className="w-full"
+                            />
+                          ) : (
+                            <p className="text-gray-800 text-sm">{note.content}</p>
+                          )}
+                        </div>
+                        <div className="flex space-x-2 ml-2">
                           {editingNote?.id === note.id ? (
                             <Button
                               onClick={() => updateNote(format(selectedDate, "yyyy-MM-dd"))}
                               size="sm"
-                              variant="ghost"
+                              variant="outline"
                             >
                               Save
                             </Button>
                           ) : (
                             <Button
-                              onClick={() => setEditingNote({ id: note.id, content: note.content })}
+                              onClick={() =>
+                                setEditingNote({ id: note.id, content: note.content })
+                              }
                               size="sm"
-                              variant="ghost"
+                              variant="outline"
                             >
-                              <Pencil className="h-3 w-3 text-slate-500" />
+                              <Pencil className="text-gray-500 h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* Delete button with gray icon */}
                           <Button
-                            onClick={() => deleteNote(format(selectedDate, "yyyy-MM-dd"), note.id)}
-                            variant="ghost"
+                            onClick={() =>
+                              deleteNote(format(selectedDate, "yyyy-MM-dd"), note.id)
+                            }
+                            variant="outline"
                             size="sm"
-                            className="text-red-500 hover:text-red-700"
                           >
-                            <Trash className="h-3 w-3" />
+                            <Trash className="text-gray-500 h-4 w-4" />
                           </Button>
                         </div>
                       </div>
+                    ))}
+                </div>
 
-                      {editingNote?.id === note.id ? (
-                        <Textarea
-                          value={editingNote.content}
-                          onChange={(e) => setEditingNote({ id: note.id, content: e.target.value })}
-                          className="w-full min-h-[80px]"
-                        />
-                      ) : (
-                        <p className="text-slate-700 text-sm whitespace-pre-wrap">{note.content}</p>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-            </div>
-
-            {/* Add a new journal entry */}
-            {selectedDate && (
-              <div className="flex-none space-y-2 pt-2 border-t">
-                <Textarea
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Write your thoughts for today..."
-                  className="w-full h-[80px] bg-white text-sm resize-none"
-                />
-                <Button
-                  onClick={addNote}
-                  className="w-full bg-primary hover:bg-primary/90"
-                  disabled={!newNote.trim()}
-                >
-                  Save Entry
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+                {/* Add a new journal entry */}
+                {selectedDate && (
+                  <div className="flex flex-col space-y-2 mt-4">
+                    <Textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Type your journal entry here..."
+                      className="w-full"
+                    />
+                    <Button
+                      onClick={addNote}
+                      className="bg-slate-600 hover:bg-slate-700 text-white"
+                      disabled={!newNote.trim()}
+                    >
+                      Save Entry
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </main>
     </div>
   );
 }
-
