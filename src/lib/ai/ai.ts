@@ -34,7 +34,7 @@ const schema = z.object({
             "curious",
             "playful",
             "celebratory",
-            "problem-solving"
+            "happy",
         ]),
     })
 });
