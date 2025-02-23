@@ -190,8 +190,58 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         isLoading: false,
       }));
 
-      // Analyze notes after adding a new one
-      await get().analyzeNotes(userId, dateId);
+      // Analyze notes and update daily summary
+      try {
+        const combinedText = notes.map(note => note.content).join("\n");
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: combinedText }),
+        });
+
+        if (!response.ok) throw new Error("Failed to analyze notes");
+        
+        const analysis = await response.json();
+        
+        // Update each note with the analysis results
+        const updatedNotes = await Promise.all(notes.map(async (note) => {
+          await updateFirebaseNote(userId, dateId, note.id, {
+            analysis: analysis.analysis,
+            confidence: analysis.confidence,
+            mood: analysis.mood,
+            hopperEmotion: analysis.response.hopperEmotion,
+            hopperResponse: analysis.response.text,
+          });
+          return {
+            ...note,
+            analysis: analysis.analysis,
+            confidence: analysis.confidence,
+            mood: analysis.mood,
+            hopperEmotion: analysis.response.hopperEmotion,
+            hopperResponse: analysis.response.text,
+          };
+        }));
+
+        // Update both notes and daily summary in store
+        set((state) => ({
+          notesData: { ...state.notesData, [dateId]: updatedNotes },
+          dailySummary: {
+            ...state.dailySummary,
+            [dateId]: {
+              analysis: analysis.analysis,
+              confidence: analysis.confidence,
+              hopperEmotion: analysis.response.hopperEmotion,
+              hopperResponse: analysis.response.text,
+              mood: analysis.mood,
+              createdAt: notes[0].createdAt,
+              updatedAt: Timestamp.now(),
+            }
+          },
+          hopperEmotion: analysis.response.hopperEmotion,
+        }));
+      } catch (error) {
+        console.error("Error analyzing notes:", error);
+      }
     } catch (error) {
       console.error("Error adding note:", error);
       set({ isLoading: false });
@@ -230,6 +280,59 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         editingNote: null,
         isLoading: false,
       }));
+
+      // Analyze notes and update daily summary
+      try {
+        const combinedText = notes.map(note => note.content).join("\n");
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: combinedText }),
+        });
+
+        if (!response.ok) throw new Error("Failed to analyze notes");
+        
+        const analysis = await response.json();
+        
+        // Update each note with the analysis results
+        const updatedNotes = await Promise.all(notes.map(async (note) => {
+          await updateFirebaseNote(userId, dateId, note.id, {
+            analysis: analysis.analysis,
+            confidence: analysis.confidence,
+            mood: analysis.mood,
+            hopperEmotion: analysis.response.hopperEmotion,
+            hopperResponse: analysis.response.text,
+          });
+          return {
+            ...note,
+            analysis: analysis.analysis,
+            confidence: analysis.confidence,
+            mood: analysis.mood,
+            hopperEmotion: analysis.response.hopperEmotion,
+            hopperResponse: analysis.response.text,
+          };
+        }));
+
+        // Update both notes and daily summary in store
+        set((state) => ({
+          notesData: { ...state.notesData, [dateId]: updatedNotes },
+          dailySummary: {
+            ...state.dailySummary,
+            [dateId]: {
+              analysis: analysis.analysis,
+              confidence: analysis.confidence,
+              hopperEmotion: analysis.response.hopperEmotion,
+              hopperResponse: analysis.response.text,
+              mood: analysis.mood,
+              createdAt: notes[0].createdAt,
+              updatedAt: Timestamp.now(),
+            }
+          },
+          hopperEmotion: analysis.response.hopperEmotion,
+        }));
+      } catch (error) {
+        console.error("Error analyzing notes:", error);
+      }
     } catch (error) {
       console.error("Error updating note:", error);
       set({ isLoading: false });
@@ -265,6 +368,19 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 }));
 
+// Add this after the imports
+const moodColors = {
+  happy: "bg-yellow-100 hover:bg-yellow-200",
+  sad: "bg-blue-100 hover:bg-blue-200",
+  angry: "bg-red-100 hover:bg-red-200",
+  anxious: "bg-purple-100 hover:bg-purple-200",
+  frustrated: "bg-purple-100 hover:bg-purple-200",
+  neutral: "bg-gray-100 hover:bg-gray-200",
+  excited: "bg-orange-100 hover:bg-orange-200",
+  peaceful: "bg-green-100 hover:bg-green-200",
+  default: "bg-white hover:bg-gray-100"
+};
+
 export default function BigCalendarLeftJournalRightZustand() {
   const { user } = useAuth();
   const {
@@ -281,25 +397,93 @@ export default function BigCalendarLeftJournalRightZustand() {
     setSelectedDate,
     setNewNote,
     setEditingNote,
+    setNotesData,
+    setDailySummary,
     addNote,
     deleteNote,
     updateNote,
-    fetchNotes,
     resetStore,
     analyzeNotes,
     setHopperY,
+    setIsLoading,
+    setHopperEmotion
   } = useCalendarStore();
 
-  // Reset store when user logs out or logs in
+  // Generate calendar days
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const weekStart = startOfWeek(monthStart);
+  const weekEnd = endOfWeek(monthEnd);
+  const calendarDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  // Fetch entire month's data
+  const fetchMonthData = async (userId: string, date: Date) => {
+    setIsLoading(true);
+    try {
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      const daysInMonth = eachDayOfInterval({ start, end });
+      
+      // Fetch all days in parallel
+      await Promise.all(
+        daysInMonth.map(async (day) => {
+          const dateId = format(day, "yyyy-MM-dd");
+          try {
+            const dayEntry = await getDayEntry(userId, dateId);
+            if (dayEntry) {
+              const { notes, ...summary } = dayEntry;
+              setNotesData(dateId, notes);
+              setDailySummary(dateId, summary);
+            }
+          } catch (error) {
+            console.error(`Error fetching data for ${dateId}:`, error);
+          }
+        })
+      );
+    } catch (error) {
+      console.error("Error fetching month data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial load and month change effect
+  useEffect(() => {
+    if (user?.uid) {
+      fetchMonthData(user.uid, currentDate);
+    }
+  }, [user?.uid, currentDate]);
+
+  // Reset store and load current month when user logs in/out
   useEffect(() => {
     if (!user) {
       resetStore();
     } else {
-      const today = resetStore(); // Reset store and get today's date
-      const dateId = format(today, "yyyy-MM-dd");
-      fetchNotes(user.uid, dateId); // Fetch today's notes
+      const today = resetStore();
+      fetchMonthData(user.uid, today);
     }
-  }, [user, resetStore, fetchNotes]);
+  }, [user, resetStore]);
+
+  // Handle date click - now just updates selection without fetching
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    const dateId = format(date, "yyyy-MM-dd");
+    // Update Hopper's emotion if we have data for this date
+    if (dailySummary[dateId]?.hopperEmotion) {
+      setHopperEmotion(dailySummary[dateId]?.hopperEmotion || "happy");
+    }
+  };
+
+  // Navigation - now includes data fetching
+  const handlePrevMonth = async () => {
+    const newDate = subMonths(currentDate, 1);
+    setCurrentDate(newDate);
+  };
+
+  const handleNextMonth = async () => {
+    const newDate = addMonths(currentDate, 1);
+    setCurrentDate(newDate);
+  };
 
   // Add animation effect for Hopper
   useEffect(() => {
@@ -318,32 +502,6 @@ export default function BigCalendarLeftJournalRightZustand() {
       analyzeNotes(user.uid, dateId);
     }
   }, [user?.uid, selectedDate, analyzeNotes]);
-
-  // Handle date click
-  const handleDateClick = async (date: Date) => {
-    setSelectedDate(date);
-    if (user?.uid) {
-      const dateId = format(date, "yyyy-MM-dd");
-      await fetchNotes(user.uid, dateId);
-    }
-  };
-
-  // Navigation
-  const handlePrevMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
-  };
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
-  };
-
-  // Generate calendar days
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const weekStart = startOfWeek(monthStart);
-  const weekEnd = endOfWeek(monthEnd);
-  const calendarDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-
-  // We'll use a simple top bar with a placeholder logo and no scrolling.
 
   return (
     <div className="h-screen w-full bg-[#f4f0e5] flex flex-col overflow-hidden">
@@ -385,18 +543,24 @@ export default function BigCalendarLeftJournalRightZustand() {
                 {/* Calendar days, smaller so everything fits */}
                 <div className="grid grid-cols-7 grid-rows-5 gap-2">
                   {calendarDays.map((date, idx) => {
+                    const dateKey = format(date, "yyyy-MM-dd");
                     const isCurrentMonth = date.getMonth() === currentDate.getMonth();
-                    const isSelected =
-                      selectedDate && date.toDateString() === selectedDate.toDateString();
+                    const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+                    const dayMood = dailySummary[dateKey]?.mood?.toLowerCase() || 'default';
+                    const moodColor = moodColors[dayMood as keyof typeof moodColors] || moodColors.default;
+                    
                     return (
                       <div
                         key={idx}
-                        className={`h-16 border border-gray-300 flex items-center justify-center rounded-md cursor-pointer transition-colors
-                          ${isCurrentMonth ? "bg-white text-gray-900" : "bg-gray-200 text-gray-500"}
-                          ${isSelected ? "ring-2 ring-slate-500" : "hover:bg-gray-100"}`}
+                        className={`h-16 border border-gray-300 flex flex-col items-center justify-center rounded-md cursor-pointer transition-colors
+                          ${isCurrentMonth ? moodColor : "bg-gray-200 text-gray-500"}
+                          ${isSelected ? "ring-2 ring-slate-500" : ""}`}
                         onClick={() => handleDateClick(date)}
                       >
-                        {date.getDate()}
+                        <span className="text-lg">{date.getDate()}</span>
+                        {isCurrentMonth && dailySummary[dateKey]?.mood && (
+                          <span className="text-xs text-gray-600 capitalize">{dailySummary[dateKey]?.mood}</span>
+                        )}
                       </div>
                     );
                   })}
@@ -435,11 +599,11 @@ export default function BigCalendarLeftJournalRightZustand() {
                     <p className="text-sm mb-2">
                       {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.hopperResponse || "Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?"}
                     </p>
-                    <div className="text-xs text-gray-500 mt-2 border-t pt-2">
+                    {/* <div className="text-xs text-gray-500 mt-2 border-t pt-2">
                       <p>Mood: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.mood || 'Not analyzed'}</p>
                       <p>Analysis: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.analysis || 'No analysis available'}</p>
                       <p>Confidence: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.confidence?.toFixed(2) || '0.00'}</p>
-                    </div>
+                    </div> */}
                   </>
                 ) : (
                   <p className="text-sm mb-2">
