@@ -232,19 +232,19 @@ export default function BigCalendarLeftJournalRightZustand() {
             </Card>
           </motion.div>
 
-          {/* Right side: Journal entries, no scrolling */}
+          {/* Right side: Journal entries, scrollable within the pane */}
           <motion.div
-            className="flex flex-col h-full w-1/2"
+            className="flex flex-col h-3/4 w-1/2"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <Card className="rounded-2xl shadow-xl flex-1">
-              <CardContent className="p-4 flex flex-col h-full">
+            <Card className="rounded-2xl shadow-xl flex-1 overflow-hidden">
+              <CardContent className="p-4 flex flex-col h-full pb-2">
                 <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
 
-                {/* We'll display notes, but also make sure no scrolling happens by restricting height. */}
-                <div className="flex flex-col space-y-2">
+                {/* We'll display notes with scrolling enabled inside the pane. */}
+                <div className="flex flex-col space-y-2 overflow-y-auto max-h-[300px] pr-2 pb-0">
                   {selectedDate &&
                     notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
                       <div
@@ -302,23 +302,24 @@ export default function BigCalendarLeftJournalRightZustand() {
                     ))}
                 </div>
 
-                {/* Add a new journal entry */}
+
+                {/* Add a new journal entry, positioned at the bottom with less white space */}
                 {selectedDate && (
-                  <div className="flex flex-col space-y-2 mt-4">
-                    <Textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Type your journal entry here..."
-                      className="w-full"
-                    />
-                    <Button
-                      onClick={addNote}
-                      className="bg-slate-600 hover:bg-slate-700 text-white"
-                      disabled={!newNote.trim()}
-                    >
-                      Save Entry
-                    </Button>
-                  </div>
+                  <div className="flex flex-col items-center mt-auto pb-1">
+                  <Textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Type your journal entry here..."
+                    className="w-full max-w-md"
+                  />
+                  <Button
+                    onClick={addNote}
+                    className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
+                    disabled={!newNote.trim()}
+                  >
+                    Save Entry
+                  </Button>
+                </div>
                 )}
               </CardContent>
             </Card>
