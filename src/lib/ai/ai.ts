@@ -22,6 +22,7 @@ const schema = z.object({
         "angry",
         "excited",
         "reflective",
+        "peaceful",
     ]),
     confidence: z.number().min(0).max(1),
     analysis: z.string().min(1),
