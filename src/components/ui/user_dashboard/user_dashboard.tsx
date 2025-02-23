@@ -25,6 +25,8 @@ import {
   updateNote as updateFirebaseNote,
   deleteNote as deleteFirebaseNote,
   getNotes,
+  getDayEntry,
+  DayEntry
 } from "@/lib/dashboard/dashboard";
 
 // Define the shape of a note
@@ -45,18 +47,19 @@ interface CalendarState {
   currentDate: Date;
   selectedDate: Date | null;
   notesData: { [dateKey: string]: Note[] };
+  dailySummary: { [dateKey: string]: Omit<DayEntry, 'id' | 'notes'> | null };
   newNote: string;
   editingNote: { id: string; content: string } | null;
-  motivationalQuote: string;
   isLoading: boolean;
-  hopperY: number; // Track Hopper's vertical position
-  hopperEmotion: string; // Track Hopper's current emotion
+  hopperY: number;
+  hopperEmotion: string;
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
   setNewNote: (note: string) => void;
   setEditingNote: (note: { id: string; content: string } | null) => void;
   setNotesData: (dateKey: string, notes: Note[]) => void;
+  setDailySummary: (dateKey: string, summary: Omit<DayEntry, 'id' | 'notes'> | null) => void;
   setIsLoading: (loading: boolean) => void;
   setHopperY: (y: number) => void;
   setHopperEmotion: (emotion: string) => void;
@@ -65,7 +68,6 @@ interface CalendarState {
   addNote: (userId: string, dateId: string) => Promise<void>;
   deleteNote: (userId: string, dateId: string, noteId: string) => Promise<void>;
   updateNote: (userId: string, dateId: string) => Promise<void>;
-  generateMotivationalQuote: () => void;
   fetchNotes: (userId: string, dateId: string) => Promise<void>;
   analyzeNotes: (userId: string, dateId: string) => Promise<void>;
 }
@@ -75,9 +77,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   currentDate: new Date(),
   selectedDate: null,
   notesData: {},
+  dailySummary: {},
   newNote: "",
   editingNote: null,
-  motivationalQuote: "Stay strong, keep pushing forward!",
   isLoading: false,
   hopperY: 0,
   hopperEmotion: "happy",
@@ -89,6 +91,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   setNotesData: (dateKey, notes) => set((state) => ({
     notesData: { ...state.notesData, [dateKey]: notes },
   })),
+  setDailySummary: (dateKey, summary) => set((state) => ({
+    dailySummary: { ...state.dailySummary, [dateKey]: summary },
+  })),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setHopperY: (y) => set({ hopperY: y }),
   setHopperEmotion: (emotion) => set({ hopperEmotion: emotion }),
@@ -98,9 +103,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       currentDate: today,
       selectedDate: today,
       notesData: {},
+      dailySummary: {},
       newNote: "",
       editingNote: null,
-      motivationalQuote: "Stay strong, keep pushing forward!",
       isLoading: false,
       hopperY: 0,
       hopperEmotion: "happy",
@@ -153,7 +158,6 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       set((state) => ({
         notesData: { ...state.notesData, [dateId]: updatedNotes },
         hopperEmotion: analysis.response.hopperEmotion,
-        motivationalQuote: analysis.response.text,
       }));
     } catch (error) {
       console.error("Error analyzing notes:", error);
@@ -232,29 +236,28 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     }
   },
 
-  generateMotivationalQuote: () => {
-    const quotes = [
-      "You are capable of amazing things!",
-      "Believe in yourself and all that you are.",
-      "Every day is a new beginning, take a deep breath and start again.",
-      "Hardships often prepare ordinary people for an extraordinary destiny.",
-      "Keep going. Everything you need will come to you at the perfect time.",
-    ];
-    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-    set({ motivationalQuote: randomQuote });
-  },
-
   fetchNotes: async (userId, dateId) => {
     try {
       set({ isLoading: true });
-      const notes = await getNotes(userId, dateId);
-      set((state) => ({
-        notesData: { ...state.notesData, [dateId]: notes },
-      }));
+      const dayEntry = await getDayEntry(userId, dateId);
+      if (dayEntry) {
+        const { notes, ...summary } = dayEntry;
+        set((state) => ({
+          notesData: { ...state.notesData, [dateId]: notes },
+          dailySummary: { ...state.dailySummary, [dateId]: summary },
+          hopperEmotion: summary.hopperEmotion || state.hopperEmotion,
+        }));
+      } else {
+        set((state) => ({
+          notesData: { ...state.notesData, [dateId]: [] },
+          dailySummary: { ...state.dailySummary, [dateId]: null },
+        }));
+      }
     } catch (error) {
       console.error("Error fetching notes:", error);
       set((state) => ({
         notesData: { ...state.notesData, [dateId]: [] },
+        dailySummary: { ...state.dailySummary, [dateId]: null },
       }));
     } finally {
       set({ isLoading: false });
@@ -268,9 +271,9 @@ export default function BigCalendarLeftJournalRightZustand() {
     currentDate,
     selectedDate,
     notesData,
+    dailySummary,
     newNote,
     editingNote,
-    motivationalQuote,
     isLoading,
     hopperY,
     hopperEmotion,
@@ -281,7 +284,6 @@ export default function BigCalendarLeftJournalRightZustand() {
     addNote,
     deleteNote,
     updateNote,
-    generateMotivationalQuote,
     fetchNotes,
     resetStore,
     analyzeNotes,
@@ -320,7 +322,6 @@ export default function BigCalendarLeftJournalRightZustand() {
   // Handle date click
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
-    generateMotivationalQuote();
     if (user?.uid) {
       const dateId = format(date, "yyyy-MM-dd");
       await fetchNotes(user.uid, dateId);
@@ -416,7 +417,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                 animate={{ y: hopperY }}
               >
                 <img
-                  src={`/hopper${hopperEmotion.toLowerCase()}.png`}
+                  src={`/assets/hoppers/hopper${hopperEmotion.toLowerCase()}.png`}
                   alt={`Hopper feeling ${hopperEmotion}`}
                   className="w-full h-full object-contain"
                 />
@@ -429,12 +430,21 @@ export default function BigCalendarLeftJournalRightZustand() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4 }}
               >
-                <p className="text-sm mb-2 italic">{motivationalQuote}</p>
-                {selectedDate && notesData[format(selectedDate, "yyyy-MM-dd")]?.[0]?.analysis && (
-                  <div className="text-xs text-gray-500 mt-2 border-t pt-2">
-                    <p>Mood: {notesData[format(selectedDate, "yyyy-MM-dd")][0].mood}</p>
-                    <p>Analysis: {notesData[format(selectedDate, "yyyy-MM-dd")][0].analysis}</p>
-                  </div>
+                {selectedDate && dailySummary[format(selectedDate, "yyyy-MM-dd")] ? (
+                  <>
+                    <p className="text-sm mb-2">
+                      {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.hopperResponse || "Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?"}
+                    </p>
+                    <div className="text-xs text-gray-500 mt-2 border-t pt-2">
+                      <p>Mood: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.mood || 'Not analyzed'}</p>
+                      <p>Analysis: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.analysis || 'No analysis available'}</p>
+                      <p>Confidence: {dailySummary[format(selectedDate, "yyyy-MM-dd")]?.confidence?.toFixed(2) || '0.00'}</p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm mb-2">
+                    Hi! I&apos;m Hopper, your journaling companion. How are you feeling today?
+                  </p>
                 )}
                 <div className="absolute bottom-1 left-[-10px] w-4 h-4 bg-white border border-gray-300 rotate-45"></div>
               </motion.div>
