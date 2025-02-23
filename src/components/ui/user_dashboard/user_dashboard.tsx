@@ -244,7 +244,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                 <h2 className="font-bold text-xl mb-4 text-gray-800">Journal Entry</h2>
 
                 {/* We'll display notes with scrolling enabled inside the pane. */}
-                <div className="flex flex-col space-y-2 overflow-y-auto max-h-[300px] pr-2 pb-0">
+                <div className="flex flex-col space-y-2 overflow-y-auto flex-1 pr-2 pb-0">
                   {selectedDate &&
                     notesData[format(selectedDate, "yyyy-MM-dd")]?.map((note) => (
                       <div
@@ -302,24 +302,23 @@ export default function BigCalendarLeftJournalRightZustand() {
                     ))}
                 </div>
 
-
                 {/* Add a new journal entry, positioned at the bottom with less white space */}
                 {selectedDate && (
-                  <div className="flex flex-col items-center mt-auto pb-1">
-                  <Textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Type your journal entry here..."
-                    className="w-full max-w-md"
-                  />
-                  <Button
-                    onClick={addNote}
-                    className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
-                    disabled={!newNote.trim()}
-                  >
-                    Save Entry
-                  </Button>
-                </div>
+                  <div className="flex flex-col items-center mt-2 pt-2 border-t">
+                    <Textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Type your journal entry here..."
+                      className="w-full max-w-md"
+                    />
+                    <Button
+                      onClick={addNote}
+                      className="bg-slate-600 hover:bg-slate-700 text-white mt-2"
+                      disabled={!newNote.trim()}
+                    >
+                      Save Entry
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
