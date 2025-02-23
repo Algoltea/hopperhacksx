@@ -49,6 +49,8 @@ interface CalendarState {
   editingNote: { id: string; content: string } | null;
   motivationalQuote: string;
   isLoading: boolean;
+  hopperY: number; // Track Hopper's vertical position
+  hopperEmotion: string; // Track Hopper's current emotion
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
@@ -56,6 +58,8 @@ interface CalendarState {
   setEditingNote: (note: { id: string; content: string } | null) => void;
   setNotesData: (dateKey: string, notes: Note[]) => void;
   setIsLoading: (loading: boolean) => void;
+  setHopperY: (y: number) => void;
+  setHopperEmotion: (emotion: string) => void;
   resetStore: () => Date;
 
   addNote: (userId: string, dateId: string) => Promise<void>;
@@ -63,6 +67,7 @@ interface CalendarState {
   updateNote: (userId: string, dateId: string) => Promise<void>;
   generateMotivationalQuote: () => void;
   fetchNotes: (userId: string, dateId: string) => Promise<void>;
+  analyzeNotes: (userId: string, dateId: string) => Promise<void>;
 }
 
 // Create the Zustand store
@@ -74,6 +79,8 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   editingNote: null,
   motivationalQuote: "Stay strong, keep pushing forward!",
   isLoading: false,
+  hopperY: 0,
+  hopperEmotion: "happy",
 
   setCurrentDate: (date) => set({ currentDate: date }),
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
@@ -83,6 +90,8 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
     notesData: { ...state.notesData, [dateKey]: notes },
   })),
   setIsLoading: (loading) => set({ isLoading: loading }),
+  setHopperY: (y) => set({ hopperY: y }),
+  setHopperEmotion: (emotion) => set({ hopperEmotion: emotion }),
   resetStore: () => {
     const today = new Date();
     set({
@@ -93,8 +102,64 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       editingNote: null,
       motivationalQuote: "Stay strong, keep pushing forward!",
       isLoading: false,
+      hopperY: 0,
+      hopperEmotion: "happy",
     });
-    return today; // Return today's date for use after reset
+    return today;
+  },
+
+  analyzeNotes: async (userId, dateId) => {
+    const { notesData } = get();
+    const notes = notesData[dateId] || [];
+    if (notes.length === 0) return;
+
+    try {
+      set({ isLoading: true });
+      
+      // Combine all notes for the day
+      const combinedText = notes.map(note => note.content).join("\n");
+      
+      // Send to analysis endpoint
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: combinedText }),
+      });
+
+      if (!response.ok) throw new Error("Failed to analyze notes");
+      
+      const analysis = await response.json();
+      
+      // Update each note with the analysis results
+      const updatedNotes = await Promise.all(notes.map(async (note) => {
+        await updateFirebaseNote(userId, dateId, note.id, {
+          analysis: analysis.analysis,
+          confidence: analysis.confidence,
+          mood: analysis.mood,
+          hopperEmotion: analysis.response.hopperEmotion,
+          hopperResponse: analysis.response.text,
+        });
+        return {
+          ...note,
+          analysis: analysis.analysis,
+          confidence: analysis.confidence,
+          mood: analysis.mood,
+          hopperEmotion: analysis.response.hopperEmotion,
+          hopperResponse: analysis.response.text,
+        };
+      }));
+
+      // Update store with analyzed notes
+      set((state) => ({
+        notesData: { ...state.notesData, [dateId]: updatedNotes },
+        hopperEmotion: analysis.response.hopperEmotion,
+        motivationalQuote: analysis.response.text,
+      }));
+    } catch (error) {
+      console.error("Error analyzing notes:", error);
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   addNote: async (userId, dateId) => {
@@ -120,6 +185,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         newNote: "",
         isLoading: false,
       }));
+
+      // Analyze notes after adding a new one
+      await get().analyzeNotes(userId, dateId);
     } catch (error) {
       console.error("Error adding note:", error);
       set({ isLoading: false });
@@ -204,6 +272,8 @@ export default function BigCalendarLeftJournalRightZustand() {
     editingNote,
     motivationalQuote,
     isLoading,
+    hopperY,
+    hopperEmotion,
     setCurrentDate,
     setSelectedDate,
     setNewNote,
@@ -214,6 +284,8 @@ export default function BigCalendarLeftJournalRightZustand() {
     generateMotivationalQuote,
     fetchNotes,
     resetStore,
+    analyzeNotes,
+    setHopperY,
   } = useCalendarStore();
 
   // Reset store when user logs out or logs in
@@ -226,6 +298,24 @@ export default function BigCalendarLeftJournalRightZustand() {
       fetchNotes(user.uid, dateId); // Fetch today's notes
     }
   }, [user, resetStore, fetchNotes]);
+
+  // Add animation effect for Hopper
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const y = Math.sin(Date.now() / 1000) * 10;
+      setHopperY(y);
+    }, 1000 / 60); // 60fps
+
+    return () => clearInterval(interval);
+  }, [setHopperY]);
+
+  // Analyze notes when date is selected
+  useEffect(() => {
+    if (user?.uid && selectedDate) {
+      const dateId = format(selectedDate, "yyyy-MM-dd");
+      analyzeNotes(user.uid, dateId);
+    }
+  }, [user?.uid, selectedDate, analyzeNotes]);
 
   // Handle date click
   const handleDateClick = async (date: Date) => {
@@ -313,31 +403,39 @@ export default function BigCalendarLeftJournalRightZustand() {
               </CardContent>
             </Card>
 
-            {/* Rabbit with Motivational Quote */}
+            {/* Rabbit with Analysis Response */}
             <motion.div
               className="flex flex-row items-center space-x-4 relative"
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              animate={{ opacity: 1, y: hopperY }}
+              transition={{ duration: 0.4 }}
             >
-              {/* Larger Rabbit Image - Positioned to the Left */}
-              <div className="relative w-36 h-36">
+              {/* Hopper Image with Emotion */}
+              <motion.div 
+                className="relative w-36 h-36"
+                animate={{ y: hopperY }}
+              >
                 <img
-                  src="/hopperhappy1.png" // Corrected path
-                  alt="Motivational Rabbit"
-                  className="w-full h-full"
+                  src={`/hopper${hopperEmotion.toLowerCase()}.png`}
+                  alt={`Hopper feeling ${hopperEmotion}`}
+                  className="w-full h-full object-contain"
                 />
-              </div>
+              </motion.div>
 
-              {/* Speech Bubble - Positioned to the Right of the Rabbit's Mouth */}
+              {/* Speech Bubble with Analysis */}
               <motion.div
-                className="relative bg-white border rounded-lg shadow-md p-3 text-gray-700 italic max-w-xs ml-4"
+                className="relative bg-white border rounded-lg shadow-md p-4 text-gray-700 max-w-xs ml-4"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4 }}
               >
-                <p>{motivationalQuote}</p>
-                {/* Speech Bubble Tail Positioned on the Left Near Rabbit's Mouth */}
+                <p className="text-sm mb-2 italic">{motivationalQuote}</p>
+                {selectedDate && notesData[format(selectedDate, "yyyy-MM-dd")]?.[0]?.analysis && (
+                  <div className="text-xs text-gray-500 mt-2 border-t pt-2">
+                    <p>Mood: {notesData[format(selectedDate, "yyyy-MM-dd")][0].mood}</p>
+                    <p>Analysis: {notesData[format(selectedDate, "yyyy-MM-dd")][0].analysis}</p>
+                  </div>
+                )}
                 <div className="absolute bottom-1 left-[-10px] w-4 h-4 bg-white border border-gray-300 rotate-45"></div>
               </motion.div>
             </motion.div>
