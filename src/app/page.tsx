@@ -12,7 +12,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#f4f0e5]">
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div className="container relative px-4 md:px-6 h-full flex items-center">
+        <div className="container relative px-4 md:px-6 h-full flex items-center mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] items-center gap-8 w-full">
             {/* Left floating card - Recent Journal Entry + Hopper's Tip */}
             <div className="hidden lg:block">
@@ -148,7 +148,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section id="features" className="py-20 bg-white/50 relative z-10">
-        <div className="container px-4 md:px-6">
+        <div className="container px-4 md:px-6 mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">How Hopper Helps</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             <motion.div
@@ -219,7 +219,7 @@ export default function Home() {
 
       {/* Demo Section */}
       <section className="py-20">
-        <div className="container px-4 md:px-6">
+        <div className="container px-4 md:px-6 mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">Experience Hopper</h2>
           <div className="max-w-6xl mx-auto">
             <motion.div
@@ -373,7 +373,7 @@ export default function Home() {
 
       {/* CTA Section */}
       <section className="py-20 bg-white/50">
-        <div className="container px-4 md:px-6">
+        <div className="container px-4 md:px-6 mx-auto">
           <div className="max-w-2xl mx-auto text-center space-y-8">
             <h2 className="text-3xl font-bold">Ready to Start Your Journey?</h2>
             <p className="text-muted-foreground">
