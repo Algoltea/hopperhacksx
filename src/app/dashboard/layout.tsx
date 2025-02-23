@@ -47,13 +47,14 @@ export default function DashboardLayout({
       <nav className="border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm flex-none">
         <div className="container mx-auto px-4 flex h-14 items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-xl text-slate-800">HopperHelps</span>
-            {user.email && (
-              <span className="text-sm text-slate-600 hidden md:inline-block">
-                ({user.email})
-              </span>
-            )}
+            {/* Logo Image */}
+            <img
+                src="/hopperhelps_logo.png" // Ensure the logo is in the public folder
+                alt="HopperHelps Logo"
+                className="w-20 h-15" // Wider logo
+              />
           </div>
+
           <Button
             onClick={handleLogout}
             variant="ghost"
