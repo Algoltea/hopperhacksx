@@ -664,7 +664,7 @@ export default function BigCalendarLeftJournalRightZustand() {
                                 }
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-500 hover:text-red-600"
+                                className="text-gray-500 hover:text-gray-700"
                                 disabled={isLoading}
                               >
                                 {isLoading ? (
