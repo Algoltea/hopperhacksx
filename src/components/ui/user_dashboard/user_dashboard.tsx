@@ -13,7 +13,7 @@ import {
 } from "date-fns";
 import { motion } from "framer-motion";
 import { create } from "zustand";
-import { Trash, Pencil, Settings2, Palette } from "lucide-react";
+import { Trash, Pencil, Settings2, Palette, RefreshCw, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Timestamp } from "firebase/firestore";
 
@@ -38,6 +38,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { JournalRecommendation } from "@/lib/ai/journal-recommendations";
 
 // Define the shape of a note
 interface Note {
@@ -64,6 +65,9 @@ interface CalendarState {
   hopperY: number;
   hopperEmotion: string;
   showMoodLabels: boolean;
+  currentRecommendation: JournalRecommendation | null;
+  isLoadingRecommendation: boolean;
+  isRecommendationExpanded: boolean;
 
   setCurrentDate: (date: Date) => void;
   setSelectedDate: (date: Date | null) => void;
@@ -82,6 +86,10 @@ interface CalendarState {
   updateNote: (userId: string, dateId: string) => Promise<void>;
   fetchNotes: (userId: string, dateId: string) => Promise<void>;
   analyzeNotes: (userId: string, dateId: string) => Promise<void>;
+  setCurrentRecommendation: (recommendation: JournalRecommendation | null) => void;
+  setIsLoadingRecommendation: (loading: boolean) => void;
+  fetchRecommendation: (userId: string, dateId: string) => Promise<void>;
+  setIsRecommendationExpanded: (expanded: boolean) => void;
 }
 
 // Create the Zustand store
@@ -96,6 +104,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
   hopperY: 0,
   hopperEmotion: "happy",
   showMoodLabels: true,
+  currentRecommendation: null,
+  isLoadingRecommendation: false,
+  isRecommendationExpanded: false,
 
   setCurrentDate: (date) => set({ currentDate: date }),
   setSelectedDate: (date) => set({ selectedDate: date, newNote: "" }),
@@ -124,6 +135,9 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       hopperY: 0,
       hopperEmotion: "happy",
       showMoodLabels: true,
+      currentRecommendation: null,
+      isLoadingRecommendation: false,
+      isRecommendationExpanded: false,
     });
     return today;
   },
@@ -203,6 +217,8 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
         notesData: { ...state.notesData, [dateId]: notes },
         newNote: "",
         isLoading: false,
+        isRecommendationExpanded: false,
+        currentRecommendation: null,
       }));
 
       // Analyze notes and update daily summary
@@ -389,6 +405,54 @@ const useCalendarStore = create<CalendarState>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
+  setCurrentRecommendation: (recommendation) => set({ currentRecommendation: recommendation }),
+  setIsLoadingRecommendation: (loading) => set({ isLoadingRecommendation: loading }),
+
+  fetchRecommendation: async (userId, dateId) => {
+    const { notesData } = get();
+    const notes = notesData[dateId] || [];
+
+    try {
+      set({ isLoadingRecommendation: true });
+
+      // Get time-based context
+      const now = new Date();
+      const hour = now.getHours();
+      const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+      const dayOfWeek = format(now, "EEEE").toLowerCase();
+
+      // Prepare recent entries context
+      const recentEntries = notes.map(note => ({
+        content: note.content,
+        mood: note.mood,
+        timestamp: note.timestamp || format(note.createdAt.toDate(), "yyyy-MM-dd HH:mm:ss")
+      }));
+
+      const response = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          context: {
+            recentEntries,
+            timeOfDay,
+            dayOfWeek
+          }
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch recommendation");
+      
+      const recommendation = await response.json();
+      set({ currentRecommendation: recommendation });
+    } catch (error) {
+      console.error("Error fetching recommendation:", error);
+    } finally {
+      set({ isLoadingRecommendation: false });
+    }
+  },
+
+  setIsRecommendationExpanded: (expanded) => set({ isRecommendationExpanded: expanded }),
 }));
 
 // Add this after the imports
@@ -431,6 +495,9 @@ export default function BigCalendarLeftJournalRightZustand() {
     hopperY,
     hopperEmotion,
     showMoodLabels,
+    currentRecommendation,
+    isLoadingRecommendation,
+    isRecommendationExpanded,
     setCurrentDate,
     setSelectedDate,
     setNewNote,
@@ -445,6 +512,10 @@ export default function BigCalendarLeftJournalRightZustand() {
     setIsLoading,
     setHopperEmotion,
     setShowMoodLabels,
+    // setCurrentRecommendation,
+    // setIsLoadingRecommendation,
+    fetchRecommendation,
+    setIsRecommendationExpanded,
   } = useCalendarStore();
 
   // Generate calendar days
@@ -804,13 +875,95 @@ export default function BigCalendarLeftJournalRightZustand() {
                 {/* Add new journal entry */}
                 {selectedDate && (
                   <div className="flex flex-col items-center mt-2 pt-4 border-t">
-                    <Textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Type your journal entry here..."
-                      className="w-full min-h-[100px] resize-none bg-white focus:ring-2 focus:ring-primary/20"
-                      disabled={isLoading}
-                    />
+                    <div className="w-full flex items-start gap-2">
+                      <Textarea
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        placeholder="Type your journal entry here..."
+                        className="flex-1 min-h-[100px] resize-none bg-white focus:ring-2 focus:ring-primary/20"
+                        disabled={isLoading}
+                      />
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (currentRecommendation) {
+                              setIsRecommendationExpanded(!isRecommendationExpanded);
+                            } else {
+                              fetchRecommendation(user?.uid || "", format(selectedDate, "yyyy-MM-dd"));
+                              setIsRecommendationExpanded(true);
+                            }
+                          }}
+                          disabled={isLoadingRecommendation}
+                          className="h-8 w-8"
+                        >
+                          {isLoadingRecommendation ? (
+                            <Loader className="h-4 w-4" />
+                          ) : currentRecommendation ? (
+                            isRecommendationExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Collapsible recommendation section */}
+                    {currentRecommendation && isRecommendationExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-full overflow-hidden"
+                      >
+                        <div className="bg-white/90 rounded-lg shadow-sm p-3 mt-2 text-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500">
+                                {currentRecommendation.category}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                {currentRecommendation.difficulty}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ~{currentRecommendation.estimatedTime} min
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => fetchRecommendation(user?.uid || "", format(selectedDate, "yyyy-MM-dd"))}
+                              disabled={isLoadingRecommendation}
+                              className="h-6 w-6"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-600 italic mb-2">
+                            {currentRecommendation.hopperIntro}
+                          </p>
+                          <div className="space-y-1">
+                            <p className="text-gray-800 text-sm">
+                              {currentRecommendation.prompt}
+                            </p>
+                            <div className="mt-2 space-y-1">
+                              {currentRecommendation.followUp.map((question: string, index: number) => (
+                                <p key={index} className="text-xs text-gray-600">
+                                  • {question}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
                     <div className="w-full flex justify-end mt-2">
                       <Button
                         onClick={() => user?.uid && addNote(user.uid, format(selectedDate, "yyyy-MM-dd"))}

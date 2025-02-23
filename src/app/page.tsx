@@ -46,10 +46,10 @@ export default function Home() {
                 transition={{ duration: 0.6 }}
                 className="space-y-4"
               >
-                <div className="relative w-32 h-32 mx-auto mb-4">
+                <div className="relative w-96 h-96 mx-auto mb-4">
                   <motion.img
-                    src="/assets/hoppers/hopperhappy.png"
-                    alt="Hopper"
+                    src="/hopperhelps_logo.png"
+                    alt="HopperHelps Logo"
                     className="w-full h-full object-contain"
                     animate={{ y: [0, -10, 0] }}
                     transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
