@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useDateStore } from "@/store/dateStore";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { date, setDate } = useDateStore();
+  const router = useRouter();
 
   return (
     <main className="min-h-screen">
@@ -41,8 +43,23 @@ export default function Home() {
                 </p>
               </div>
               <div className="space-x-4">
-                <Button size="lg" className="bg-primary hover:bg-primary/90">Get Started</Button>
-                <Button size="lg" variant="outline">Learn More</Button>
+                <Button 
+                  size="lg" 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => router.push('/login')}
+                >
+                  Get Started
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={() => {
+                    const element = document.getElementById('features');
+                    element?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  Learn More
+                </Button>
               </div>
             </div>
 
@@ -69,7 +86,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-muted/30">
+      <section id="features" className="py-20 bg-muted/30">
         <div className="container px-4 md:px-6">
           <h2 className="text-3xl font-bold text-center mb-12">Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">

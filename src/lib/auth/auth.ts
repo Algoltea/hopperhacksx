@@ -3,7 +3,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  User
+  User,
+  AuthError as FirebaseAuthError
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -11,11 +12,12 @@ export const registerUser = async (email: string, password: string) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return userCredential.user;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const authError = error as FirebaseAuthError;
     let errorMessage = "An error occurred.";
-    if (error.code === "auth/email-already-in-use") {
+    if (authError.code === "auth/email-already-in-use") {
       errorMessage = "Email is already in use.";
-    } else if (error.code === "auth/weak-password") {
+    } else if (authError.code === "auth/weak-password") {
       errorMessage = "Password must be at least 6 characters.";
     }
     throw new Error(errorMessage);
@@ -26,11 +28,12 @@ export const loginUser = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const authError = error as FirebaseAuthError;
     let errorMessage = "An error occurred.";
-    if (error.code === "auth/user-not-found") {
+    if (authError.code === "auth/user-not-found") {
       errorMessage = "User not found.";
-    } else if (error.code === "auth/wrong-password") {
+    } else if (authError.code === "auth/wrong-password") {
       errorMessage = "Incorrect password.";
     }
     throw new Error(errorMessage);
@@ -40,8 +43,13 @@ export const loginUser = async (email: string, password: string) => {
 export const logoutUser = async () => {
   try {
     await signOut(auth);
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    const authError = error as FirebaseAuthError;
+    let errorMessage = "Failed to logout.";
+    if (authError.code === "auth/no-current-user") {
+      errorMessage = "No user is currently signed in.";
+    }
+    throw new Error(errorMessage);
   }
 };
 

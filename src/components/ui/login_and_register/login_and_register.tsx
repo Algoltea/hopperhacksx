@@ -1,43 +1,56 @@
 "use client";
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { loginUser, registerUser } from "@/lib/auth/auth";
 
+interface AuthError {
+  message: string;
+}
+
 export default function DemoAuthForm() {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // Reset error state
+    setError(null);
+    setIsLoading(true);
 
     if (!email || !password) {
       setError("Email and password are required.");
+      setIsLoading(false);
       return;
     }
 
     if (!isLogin && password !== confirmPassword) {
       setError("Passwords do not match.");
+      setIsLoading(false);
       return;
     }
 
     try {
       if (isLogin) {
         await loginUser(email, password);
-        alert("Login successful!"); // Replace with proper navigation logic
+        router.push('/dashboard');
       } else {
         await registerUser(email, password);
-        alert("Account created successfully!"); // Replace with navigation logic
+        router.push('/dashboard');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as AuthError;
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,7 +74,7 @@ export default function DemoAuthForm() {
             <h2 className="text-2xl font-bold mb-4 text-gray-800">
               {isLogin ? "Login" : "Register"}
             </h2>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
             <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
               <div>
                 <Label htmlFor="email" className="text-gray-700">Email</Label>
@@ -72,6 +85,7 @@ export default function DemoAuthForm() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
                   className="mt-1"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -84,6 +98,7 @@ export default function DemoAuthForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   className="mt-1"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -97,19 +112,28 @@ export default function DemoAuthForm() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm your password"
                     className="mt-1"
+                    disabled={isLoading}
                     required
                   />
                 </div>
               )}
 
-              <Button type="submit" className="w-full mt-2 bg-slate-600 hover:bg-slate-700 text-white">
-                {isLogin ? "Login" : "Sign Up"}
+              <Button 
+                type="submit" 
+                className="w-full mt-2"
+                disabled={isLoading}
+              >
+                {isLoading ? "Loading..." : isLogin ? "Login" : "Sign Up"}
               </Button>
             </form>
             <div className="text-center mt-4">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm">
                 {isLogin ? "Need an account?" : "Already have an account?"}{" "}
-                <button className="text-slate-600 hover:underline" onClick={toggleForm}>
+                <button 
+                  className="hover:underline" 
+                  onClick={toggleForm}
+                  disabled={isLoading}
+                >
                   {isLogin ? "Register now" : "Log in"}
                 </button>
               </p>
