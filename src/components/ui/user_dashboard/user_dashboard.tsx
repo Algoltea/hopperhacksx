@@ -224,14 +224,35 @@ export default function BigCalendarLeftJournalRightZustand() {
               </CardContent>
             </Card>
 
-            {/* Motivational Quote card */}
-            <Card className="rounded-2xl shadow-xl flex-none">
-              <CardContent className="p-4">
-                <p className="text-gray-700 italic">{motivationalQuote}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
+            {/* Rabbit with Motivational Quote */}
+            <motion.div
+              className="flex flex-row items-center space-x-4 relative"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* Larger Rabbit Image - Positioned to the Left */}
+              <div className="relative w-36 h-36">
+                <img
+                  src="/hopperhappy1.png" // Corrected path
+                  alt="Motivational Rabbit"
+                  className="w-full h-full"
+                />
+              </div>
 
+              {/* Speech Bubble - Positioned to the Right of the Rabbit's Mouth */}
+              <motion.div
+                className="relative bg-white border rounded-lg shadow-md p-3 text-gray-700 italic max-w-xs ml-4"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.4 }}
+              >
+                <p>{motivationalQuote}</p>
+                {/* Speech Bubble Tail Positioned on the Left Near Rabbit's Mouth */}
+                <div className="absolute bottom-1 left-[-10px] w-4 h-4 bg-white border border-gray-300 rotate-45"></div>
+              </motion.div>
+            </motion.div>
+            </motion.div>
           {/* Right side: Journal entries, scrollable within the pane */}
           <motion.div
             className="flex flex-col h-3/4 w-1/2"
