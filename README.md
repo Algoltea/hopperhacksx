@@ -1,5 +1,5 @@
 # HopperHelps
-
+Contributers: Jadon Blessing, Timothy Gribbin, Brian Chen, Jared Leighton
 ## Inspiration
 Being a student, it's easy to get caught up in your work. Deadlines and expectations can eat up a lot of your focus, but it's important to remember that your journey is far more than a checklist of assignments. Taking the time to pause and reflect is an invaluable opportunity to reconnect with your feelings and rediscover your passions.
 
